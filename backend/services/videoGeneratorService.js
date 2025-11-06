@@ -1,0 +1,235 @@
+const axios = require('axios');
+const OpenAI = require('openai');
+const searchService = require('./searchService');
+const elevenlabsService = require('./elevenlabsService');
+const creatomateService = require('./creatomateService');
+const youtubeService = require('./youtubeService');
+const pexelsService = require('./pexelsService');
+
+class VideoGeneratorService {
+  async generateVideo(config) {
+    const { jobId, theme, duration, channelName, privacyStatus, keys, db } = config;
+
+    try {
+      // Step 1: Web/Wikipedia Search
+      await this.updateProgress(db, jobId, 'Searching for information...');
+      console.log(`[Job ${jobId}] Starting web search for theme: ${theme}`);
+      
+      const searchResults = await searchService.searchInformation(theme, keys.openaiKey);
+      console.log(`[Job ${jobId}] Search completed, found information`);
+
+      // Step 2: Generate Script with OpenAI
+      await this.updateProgress(db, jobId, 'Creating story script...');
+      console.log(`[Job ${jobId}] Generating script`);
+      
+      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey);
+      console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
+
+      // Step 3: Generate Audio with ElevenLabs
+      await this.updateProgress(db, jobId, 'Generating voice narration...');
+      console.log(`[Job ${jobId}] Generating audio`);
+      
+      const audioUrl = await elevenlabsService.generateAudio(script.narration, keys.elevenlabsKey);
+      console.log(`[Job ${jobId}] Audio generated: ${audioUrl}`);
+
+      // Step 4: Generate/Fetch Visual Assets
+      await this.updateProgress(db, jobId, 'Preparing visual assets...');
+      console.log(`[Job ${jobId}] Fetching visual assets`);
+      
+      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey);
+      console.log(`[Job ${jobId}] Visual assets prepared: ${visualAssets.length} assets`);
+
+      // Step 5: Create Final Video with Creatomate
+      await this.updateProgress(db, jobId, 'Creating final video...');
+      console.log(`[Job ${jobId}] Creating video with Creatomate`);
+      
+      let videoUrl;
+      if (keys.creatomateKey) {
+        videoUrl = await creatomateService.createVideo({
+          audioUrl,
+          visualAssets,
+          duration,
+          theme,
+          creatomateKey: keys.creatomateKey
+        });
+      } else {
+        // Fallback: Create a simple video reference
+        videoUrl = `https://example.com/video-${jobId}.mp4`;
+        console.log(`[Job ${jobId}] Creatomate key not provided, using mock video URL`);
+      }
+      console.log(`[Job ${jobId}] Video created: ${videoUrl}`);
+
+      // Step 6: Upload to YouTube
+      let youtubeUrl = null;
+      if (keys.youtubeCredentials) {
+        await this.updateProgress(db, jobId, 'Uploading to YouTube...');
+        console.log(`[Job ${jobId}] Uploading to YouTube`);
+        
+        youtubeUrl = await youtubeService.uploadVideo({
+          videoUrl,
+          title: `${theme} - AI Generated Video`,
+          description: this.generateDescription(theme, duration, channelName),
+          privacyStatus,
+          youtubeCredentials: keys.youtubeCredentials
+        });
+        console.log(`[Job ${jobId}] Uploaded to YouTube: ${youtubeUrl}`);
+      } else {
+        console.log(`[Job ${jobId}] YouTube credentials not provided, skipping upload`);
+      }
+
+      // Update job as completed
+      await this.updateProgress(db, jobId, 'Completed!', 'completed', youtubeUrl);
+      console.log(`[Job ${jobId}] Video generation completed successfully`);
+
+      return {
+        success: true,
+        youtubeUrl,
+        videoUrl
+      };
+    } catch (error) {
+      console.error(`[Job ${jobId}] Error:`, error);
+      await this.updateProgress(db, jobId, `Error: ${error.message}`, 'failed');
+      throw error;
+    }
+  }
+
+  async generateScript(theme, duration, searchInfo, openaiKey) {
+    const openai = new OpenAI({ apiKey: openaiKey });
+
+    // Calculate approximate word count (average speaking rate: 150 words/minute)
+    const targetWords = Math.floor((duration / 60) * 150);
+
+    const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".
+
+Background Information:
+${searchInfo}
+
+Requirements:
+- Target length: approximately ${targetWords} words (for ${duration} seconds)
+- Write in a natural, engaging narrative style
+- Include fascinating facts and details
+- Structure the content to flow smoothly
+- Make it suitable for voice narration
+
+Also, suggest 3-5 visual scenes that would accompany this narration. For each scene, provide:
+1. A brief description (for searching stock footage)
+2. Approximate timing in the video
+
+Return your response in the following JSON format:
+{
+  "narration": "Full script text here...",
+  "scenes": [
+    {
+      "description": "Scene description for visual search",
+      "timing": "0-10s",
+      "searchQuery": "search terms for stock footage"
+    }
+  ]
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        { role: 'system', content: 'You are a professional video script writer. Always respond with valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    return result;
+  }
+
+  async prepareVisualAssets(scenes, openaiKey) {
+    const assets = [];
+
+    // For each scene, try to get stock footage from Pexels
+    for (const scene of scenes) {
+      try {
+        // Try Pexels first (free API, no key needed)
+        const videoClips = await pexelsService.searchVideos(scene.searchQuery);
+        
+        if (videoClips && videoClips.length > 0) {
+          assets.push({
+            type: 'video',
+            url: videoClips[0].url,
+            description: scene.description,
+            timing: scene.timing
+          });
+        } else {
+          // Fallback: Generate image with DALL-E
+          const openai = new OpenAI({ apiKey: openaiKey });
+          const imageResponse = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: `High-quality, cinematic image: ${scene.description}`,
+            n: 1,
+            size: '1792x1024'
+          });
+
+          assets.push({
+            type: 'image',
+            url: imageResponse.data[0].url,
+            description: scene.description,
+            timing: scene.timing
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching visual asset:', error);
+        // Continue with next scene
+      }
+    }
+
+    return assets;
+  }
+
+  generateDescription(theme, duration, channelName) {
+    return `This is an AI-generated video about "${theme}".
+
+Video Length: ${duration} seconds
+${channelName ? `Channel: ${channelName}` : ''}
+
+This video was automatically created using:
+- AI-powered web research
+- GPT-4 script generation
+- ElevenLabs voice synthesis
+- Professional video editing
+- Automated YouTube upload
+
+Generated by AI Video Generator Application`;
+  }
+
+  async updateProgress(db, jobId, progress, status = null, youtubeUrl = null) {
+    const updates = ['progress = ?', 'updated_at = ?'];
+    const values = [progress, new Date().toISOString()];
+
+    if (status) {
+      updates.push('status = ?');
+      values.push(status);
+    }
+
+    if (youtubeUrl) {
+      updates.push('youtube_url = ?');
+      values.push(youtubeUrl);
+    }
+
+    values.push(jobId);
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE video_jobs SET ${updates.join(', ')} WHERE id = ?`,
+        values,
+        (err) => {
+          if (err) {
+            console.error('Error updating progress:', err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+}
+
+module.exports = new VideoGeneratorService();

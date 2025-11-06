@@ -1,0 +1,107 @@
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.App-header {
+  text-align: center;
+  color: white;
+  margin-bottom: 30px;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.App-header h1 {
+  font-size: 3em;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.subtitle {
+  font-size: 1.2em;
+  opacity: 0.9;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.tab {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 15px 30px;
+  font-size: 1.1em;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.tab.active {
+  background: white;
+  color: #667eea;
+  border-color: white;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.content {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  min-height: 400px;
+}
+
+.warning-banner {
+  background: #fff3cd;
+  color: #856404;
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border-left: 4px solid #ffc107;
+  font-weight: 500;
+}
+
+.App-footer {
+  text-align: center;
+  color: white;
+  margin-top: 40px;
+  padding: 30px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  line-height: 1.8;
+}
+
+.tech-stack {
+  margin-top: 10px;
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .App-header h1 {
+    font-size: 2em;
+  }
+
+  .tabs {
+    flex-direction: column;
+  }
+
+  .content {
+    padding: 20px;
+  }
+}
