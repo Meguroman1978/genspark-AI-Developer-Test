@@ -167,6 +167,33 @@
   border-left: 4px solid #28a745;
 }
 
+.info-box {
+  margin-top: 15px;
+  padding: 15px;
+  background: #e7f3ff;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.info-box p {
+  margin: 8px 0;
+}
+
+.info-box strong {
+  color: #1976d2;
+}
+
+.info-box ol {
+  margin: 10px 0 0 20px;
+  padding: 0;
+}
+
+.info-box ol li {
+  margin: 5px 0;
+}
+
 .success-message {
   margin-bottom: 15px;
   color: #155724;

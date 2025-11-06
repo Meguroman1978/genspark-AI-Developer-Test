@@ -61,24 +61,33 @@ class VideoGeneratorService {
 
       // Step 6: Upload to YouTube
       let youtubeUrl = null;
+      let completionMessage = 'Completed!';
+      
       if (keys.youtubeCredentials) {
         await this.updateProgress(db, jobId, 'Uploading to YouTube...');
         console.log(`[Job ${jobId}] Uploading to YouTube`);
         
-        youtubeUrl = await youtubeService.uploadVideo({
-          videoUrl,
-          title: `${theme} - AI Generated Video`,
-          description: this.generateDescription(theme, duration, channelName),
-          privacyStatus,
-          youtubeCredentials: keys.youtubeCredentials
-        });
-        console.log(`[Job ${jobId}] Uploaded to YouTube: ${youtubeUrl}`);
+        try {
+          youtubeUrl = await youtubeService.uploadVideo({
+            videoUrl,
+            title: `${theme} - AI Generated Video`,
+            description: this.generateDescription(theme, duration, channelName),
+            privacyStatus,
+            youtubeCredentials: keys.youtubeCredentials
+          });
+          console.log(`[Job ${jobId}] Uploaded to YouTube: ${youtubeUrl}`);
+          completionMessage = 'Video generated and uploaded to YouTube successfully!';
+        } catch (error) {
+          console.error(`[Job ${jobId}] YouTube upload failed:`, error.message);
+          completionMessage = 'Video generated, but YouTube upload failed. Please check your YouTube credentials.';
+        }
       } else {
         console.log(`[Job ${jobId}] YouTube credentials not provided, skipping upload`);
+        completionMessage = 'Video generated successfully! YouTube credentials not configured - upload skipped.';
       }
 
       // Update job as completed
-      await this.updateProgress(db, jobId, 'Completed!', 'completed', youtubeUrl);
+      await this.updateProgress(db, jobId, completionMessage, 'completed', youtubeUrl);
       console.log(`[Job ${jobId}] Video generation completed successfully`);
 
       return {

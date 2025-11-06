@@ -262,17 +262,33 @@ function VideoGenerator({ apiKeysConfigured }) {
             {jobStatus.status === 'processing' && (
               <div className="loading-spinner"></div>
             )}
-            {jobStatus.status === 'completed' && jobStatus.youtube_url && (
+            {jobStatus.status === 'completed' && (
               <div className="success-result">
-                <p className="success-message">✅ 動画が正常に生成され、YouTubeにアップロードされました！</p>
-                <a 
-                  href={jobStatus.youtube_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="youtube-link"
-                >
-                  🎬 YouTubeで視聴する
-                </a>
+                {jobStatus.youtube_url ? (
+                  <>
+                    <p className="success-message">✅ 動画が正常に生成され、YouTubeにアップロードされました！</p>
+                    <a 
+                      href={jobStatus.youtube_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="youtube-link"
+                    >
+                      🎬 YouTubeで視聴する
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p className="success-message">✅ 動画が正常に生成されました！</p>
+                    <div className="info-box">
+                      <p>📝 <strong>注意:</strong> YouTube認証情報が設定されていないため、YouTubeへのアップロードはスキップされました。</p>
+                      <p>動画をYouTubeにアップロードするには:</p>
+                      <ol>
+                        <li>「⚙️ 設定」タブでYouTube API認証情報を設定してください</li>
+                        <li>再度動画を生成すると、自動的にYouTubeにアップロードされます</li>
+                      </ol>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {jobStatus.status === 'failed' && jobStatus.error_message && (
