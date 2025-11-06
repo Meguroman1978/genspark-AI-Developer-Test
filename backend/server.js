@@ -38,6 +38,8 @@ function initializeDatabase() {
       openai_key TEXT,
       elevenlabs_key TEXT,
       creatomate_key TEXT,
+      creatomate_template_id TEXT,
+      stability_ai_key TEXT,
       youtube_credentials TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -47,6 +49,17 @@ function initializeDatabase() {
       console.error('Error creating api_keys table:', err.message);
     } else {
       console.log('api_keys table ready');
+      // Add new columns if they don't exist (for existing databases)
+      db.run(`ALTER TABLE api_keys ADD COLUMN creatomate_template_id TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding creatomate_template_id column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE api_keys ADD COLUMN stability_ai_key TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding stability_ai_key column:', err.message);
+        }
+      });
     }
   });
 
@@ -58,6 +71,7 @@ function initializeDatabase() {
       duration INTEGER NOT NULL,
       channel_name TEXT,
       privacy_status TEXT,
+      content_type TEXT,
       status TEXT DEFAULT 'pending',
       progress TEXT,
       youtube_url TEXT,
@@ -70,6 +84,12 @@ function initializeDatabase() {
       console.error('Error creating video_jobs table:', err.message);
     } else {
       console.log('video_jobs table ready');
+      // Add new column if it doesn't exist
+      db.run(`ALTER TABLE video_jobs ADD COLUMN content_type TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding content_type column:', err.message);
+        }
+      });
     }
   });
 }

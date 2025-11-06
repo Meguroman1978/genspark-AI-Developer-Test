@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, channelName, privacyStatus } = req.body;
+  const { theme, duration, channelName, privacyStatus, contentType } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -19,7 +19,7 @@ router.post('/generate', async (req, res) => {
 
   // Get API keys
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     async (err, keys) => {
       if (err || !keys) {
@@ -34,9 +34,9 @@ router.post('/generate', async (req, res) => {
       // Create job record
       const now = new Date().toISOString();
       db.run(
-        `INSERT INTO video_jobs (user_id, theme, duration, channel_name, privacy_status, status, progress, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
-        [userId, theme, duration, channelName, privacyStatus || 'private', now, now],
+        `INSERT INTO video_jobs (user_id, theme, duration, channel_name, privacy_status, content_type, status, progress, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
+        [userId, theme, duration, channelName, privacyStatus || 'private', contentType || null, now, now],
         function(err) {
           if (err) {
             console.error('Error creating video job:', err);
@@ -59,10 +59,13 @@ router.post('/generate', async (req, res) => {
             duration,
             channelName,
             privacyStatus: privacyStatus || 'private',
+            contentType: contentType || null,
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,
               creatomateKey: keys.creatomate_key,
+              creatomateTemplateId: keys.creatomate_template_id,
+              stabilityAiKey: keys.stability_ai_key,
               youtubeCredentials: keys.youtube_credentials
             },
             db

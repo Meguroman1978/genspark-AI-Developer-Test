@@ -8,14 +8,22 @@ class CreatomateService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, creatomateKey, jobId } = config;
+    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
+    
+    // Use custom template ID if provided, otherwise use default
+    const templateId = creatomateTemplateId || this.defaultTemplateId;
 
     try {
       console.log(`${logPrefix} 🎬 Creating video with Creatomate...`);
-      console.log(`${logPrefix} Template ID: ${this.defaultTemplateId}`);
+      console.log(`${logPrefix} Template ID: ${templateId}`);
       console.log(`${logPrefix} Audio URL: ${audioUrl}`);
       console.log(`${logPrefix} Visual assets: ${visualAssets.length}`);
+      if (stabilityAiKey) {
+        console.log(`${logPrefix} Stability AI integration: enabled`);
+      } else {
+        console.log(`${logPrefix} ⚠️ Warning: No Stability AI key provided. Template may require it.`);
+      }
 
       // Verify API key first
       try {
@@ -45,7 +53,7 @@ class CreatomateService {
       const response = await axios.post(
         `https://api.creatomate.com/v2/renders`,
         {
-          template_id: this.defaultTemplateId,
+          template_id: templateId,
           modifications: modifications
         },
         {
@@ -127,6 +135,12 @@ class CreatomateService {
         } else if (status === 'failed') {
           const errorMsg = response.data.error_message || 'Unknown error';
           console.error(`${logPrefix} ❌ Render failed: ${errorMsg}`);
+          
+          // Check if it's a Stability AI integration error
+          if (errorMsg.includes('Stability AI') || errorMsg.includes('third-party integration')) {
+            throw new Error(`Creatomate template requires Stability AI integration. Please:\n1. Go to Creatomate Dashboard (https://creatomate.com/projects)\n2. Select your project\n3. Go to Settings → Integrations\n4. Add Stability AI integration with your API key\n5. Or use a template without AI image generation\n\nOriginal error: ${errorMsg}`);
+          }
+          
           throw new Error(`Render failed: ${errorMsg}`);
         }
 

@@ -6,7 +6,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     theme: '',
     duration: 60,
     channelName: '',
-    privacyStatus: 'private'
+    privacyStatus: 'private',
+    contentType: ''
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -81,7 +82,8 @@ function VideoGenerator({ apiKeysConfigured }) {
           theme: formData.theme,
           duration: parseInt(formData.duration),
           channelName: formData.channelName,
-          privacyStatus: formData.privacyStatus
+          privacyStatus: formData.privacyStatus,
+          contentType: formData.contentType
         })
       });
 
@@ -207,6 +209,31 @@ function VideoGenerator({ apiKeysConfigured }) {
               <option value="private">非公開 (Private)</option>
               <option value="unlisted">限定公開 (Unlisted)</option>
               <option value="public">公開 (Public)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="contentType">
+              動画コンテンツのタイプ
+              <span className="help-text">（オプション）動画のスタイルを指定できます</span>
+            </label>
+            <select
+              id="contentType"
+              name="contentType"
+              value={formData.contentType}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="">指定なし（自動判定）</option>
+              <option value="story">物語</option>
+              <option value="explanation">解説</option>
+              <option value="educational">学習教材</option>
+              <option value="howto">How-to</option>
+              <option value="performing">パフォーミングアート</option>
+              <option value="music">音楽動画（PV風）</option>
             </select>
           </div>
         </div>

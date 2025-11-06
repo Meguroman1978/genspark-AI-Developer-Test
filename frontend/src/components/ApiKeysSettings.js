@@ -6,6 +6,8 @@ function ApiKeysSettings({ onSaved }) {
     openai_key: '',
     elevenlabs_key: '',
     creatomate_key: '',
+    creatomate_template_id: '',
+    stability_ai_key: '',
     youtube_credentials: ''
   });
   const [loading, setLoading] = useState(false);
@@ -76,6 +78,8 @@ function ApiKeysSettings({ onSaved }) {
           openai_key: '',
           elevenlabs_key: '',
           creatomate_key: '',
+          creatomate_template_id: '',
+          stability_ai_key: '',
           youtube_credentials: ''
         });
         
@@ -171,6 +175,47 @@ function ApiKeysSettings({ onSaved }) {
             className="get-key-link"
           >
             → Creatomate APIキーを取得
+          </a>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="creatomate_template_id">
+            Creatomate Template ID
+            <span className="help-text">（オプション）使用するテンプレートID。未設定の場合はデフォルトテンプレートを使用</span>
+          </label>
+          <input
+            type="text"
+            id="creatomate_template_id"
+            name="creatomate_template_id"
+            value={formData.creatomate_template_id}
+            onChange={handleChange}
+            placeholder="8739fb2c-b1a4-4809-830a-3c10e5a622e0"
+            className="form-input"
+          />
+          <span className="help-text">テンプレートはCreatomateダッシュボードで作成・確認できます</span>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="stability_ai_key">
+            Stability AI API Key
+            <span className="help-text">（オプション）Creatomateテンプレートで画像生成を使用する場合に必要</span>
+          </label>
+          <input
+            type="password"
+            id="stability_ai_key"
+            name="stability_ai_key"
+            value={formData.stability_ai_key}
+            onChange={handleChange}
+            placeholder="sk-..."
+            className="form-input"
+          />
+          <a 
+            href="https://platform.stability.ai/account/keys" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="get-key-link"
+          >
+            → Stability AI APIキーを取得
           </a>
         </div>
 

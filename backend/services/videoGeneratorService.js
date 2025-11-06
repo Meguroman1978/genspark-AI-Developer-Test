@@ -8,12 +8,15 @@ const pexelsService = require('./pexelsService');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, channelName, privacyStatus, keys, db } = config;
+    const { jobId, theme, duration, channelName, privacyStatus, contentType, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
       await this.updateProgress(db, jobId, 'Searching for information...');
       console.log(`[Job ${jobId}] Starting web search for theme: ${theme}`);
+      if (contentType) {
+        console.log(`[Job ${jobId}] Content type: ${contentType}`);
+      }
       
       const searchResults = await searchService.searchInformation(theme, keys.openaiKey);
       console.log(`[Job ${jobId}] Search completed, found information`);
@@ -22,7 +25,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Creating story script...');
       console.log(`[Job ${jobId}] Generating script`);
       
-      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey);
+      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
 
       // Step 3: Generate Audio with ElevenLabs
@@ -51,6 +54,8 @@ class VideoGeneratorService {
           duration,
           theme,
           creatomateKey: keys.creatomateKey,
+          creatomateTemplateId: keys.creatomateTemplateId,
+          stabilityAiKey: keys.stabilityAiKey,
           jobId
         });
       } else {
@@ -103,13 +108,27 @@ class VideoGeneratorService {
     }
   }
 
-  async generateScript(theme, duration, searchInfo, openaiKey) {
+  async generateScript(theme, duration, searchInfo, openaiKey, contentType) {
     const openai = new OpenAI({ apiKey: openaiKey });
 
     // Calculate approximate word count (average speaking rate: 150 words/minute)
     const targetWords = Math.floor((duration / 60) * 150);
 
-    const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".
+    // Content type specific instructions
+    const typeInstructions = {
+      story: 'Create a narrative story format with a beginning, middle, and end. Use storytelling techniques to engage the viewer.',
+      explanation: 'Create an educational explanation format. Focus on clarity, logical flow, and easy-to-understand language.',
+      educational: 'Create a learning material format. Include key concepts, examples, and reinforce important points.',
+      howto: 'Create a step-by-step instructional format. Be clear, practical, and action-oriented.',
+      performing: 'Create a performance-focused script. Be dramatic, expressive, and emotionally engaging.',
+      music: 'Create a music video (PV) style script. Focus on visual imagery, rhythm, and artistic expression.'
+    };
+
+    const typeInstruction = contentType && typeInstructions[contentType] 
+      ? `\n\nVideo Style: ${typeInstructions[contentType]}`
+      : '';
+
+    const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".${typeInstruction}
 
 Background Information:
 ${searchInfo}

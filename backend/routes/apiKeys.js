@@ -7,7 +7,7 @@ router.get('/', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -20,6 +20,8 @@ router.get('/', async (req, res) => {
           openai_key: '',
           elevenlabs_key: '',
           creatomate_key: '',
+          creatomate_template_id: '',
+          stability_ai_key: '',
           youtube_credentials: ''
         });
       }
@@ -35,6 +37,8 @@ router.get('/', async (req, res) => {
         openai_key: maskKey(row.openai_key),
         elevenlabs_key: maskKey(row.elevenlabs_key),
         creatomate_key: maskKey(row.creatomate_key),
+        creatomate_template_id: row.creatomate_template_id || '',
+        stability_ai_key: maskKey(row.stability_ai_key),
         youtube_credentials: row.youtube_credentials ? 'Configured' : ''
       });
     }
@@ -45,7 +49,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { openai_key, elevenlabs_key, creatomate_key, youtube_credentials } = req.body;
+  const { openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials } = req.body;
 
   // Check if user already has keys
   db.get(
@@ -66,10 +70,12 @@ router.post('/', async (req, res) => {
             openai_key = COALESCE(?, openai_key),
             elevenlabs_key = COALESCE(?, elevenlabs_key),
             creatomate_key = COALESCE(?, creatomate_key),
+            creatomate_template_id = COALESCE(?, creatomate_template_id),
+            stability_ai_key = COALESCE(?, stability_ai_key),
             youtube_credentials = COALESCE(?, youtube_credentials),
             updated_at = ?
           WHERE user_id = ?`,
-          [openai_key, elevenlabs_key, creatomate_key, youtube_credentials, now, userId],
+          [openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials, now, userId],
           (err) => {
             if (err) {
               console.error('Error updating API keys:', err);
@@ -81,9 +87,9 @@ router.post('/', async (req, res) => {
       } else {
         // Insert new keys
         db.run(
-          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, creatomate_key, youtube_credentials, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [userId, openai_key, elevenlabs_key, creatomate_key, youtube_credentials, now, now],
+          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials, now, now],
           (err) => {
             if (err) {
               console.error('Error inserting API keys:', err);
@@ -103,7 +109,7 @@ router.get('/actual', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -119,6 +125,8 @@ router.get('/actual', async (req, res) => {
         openai_key: row.openai_key,
         elevenlabs_key: row.elevenlabs_key,
         creatomate_key: row.creatomate_key,
+        creatomate_template_id: row.creatomate_template_id,
+        stability_ai_key: row.stability_ai_key,
         youtube_credentials: row.youtube_credentials
       });
     }
