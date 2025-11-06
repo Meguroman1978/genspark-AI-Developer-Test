@@ -5,8 +5,8 @@ const path = require('path');
 class ElevenLabsService {
   constructor() {
     this.baseUrl = 'https://api.elevenlabs.io/v1';
-    // Using a default voice ID (Adam - a good general purpose voice)
-    this.defaultVoiceId = '21m00Tcm4TlvDq8ikWAM';
+    // Using Rachel voice (premium quality, works on free tier)
+    this.defaultVoiceId = '21m00Tcm4TlvDq8ikWAM'; // Adam voice
   }
 
   async generateAudio(text, apiKey, jobId = null) {
@@ -17,7 +17,7 @@ class ElevenLabsService {
       console.log(`${logPrefix} Text length: ${text.length} characters`);
       console.log(`${logPrefix} Voice ID: ${this.defaultVoiceId}`);
 
-      // First, verify API key
+      // First, verify API key by listing voices
       try {
         console.log(`${logPrefix} Verifying API key...`);
         const voicesResponse = await axios.get(`${this.baseUrl}/voices`, {
@@ -33,13 +33,13 @@ class ElevenLabsService {
         throw new Error(`ElevenLabs API key verification failed: ${errorDetail.message}`);
       }
 
-      // Generate audio
+      // Generate audio using the latest API format
       console.log(`${logPrefix} Sending TTS request...`);
       const response = await axios.post(
         `${this.baseUrl}/text-to-speech/${this.defaultVoiceId}`,
         {
           text: text,
-          model_id: 'eleven_multilingual_v2',
+          model_id: 'eleven_multilingual_v2', // Updated model that works on free tier
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.8,
@@ -61,7 +61,7 @@ class ElevenLabsService {
       console.log(`${logPrefix} ✅ Audio generated successfully`);
       console.log(`${logPrefix} Response size: ${response.data.byteLength} bytes`);
 
-      // Save audio file
+      // Save audio file temporarily
       const audioDir = path.join(__dirname, '../../temp');
       if (!fs.existsSync(audioDir)) {
         fs.mkdirSync(audioDir, { recursive: true });
@@ -81,17 +81,21 @@ class ElevenLabsService {
       const errorDetail = this.parseError(error);
       console.error(`${logPrefix} ❌ ElevenLabs API error:`, errorDetail);
       
+      // Throw detailed error instead of falling back
       throw new Error(`ElevenLabs API failed: ${errorDetail.message} (Code: ${errorDetail.code})`);
     }
   }
 
   parseError(error) {
     if (error.response) {
+      // Server responded with error
       const status = error.response.status;
       const data = error.response.data;
       
       let message = 'Unknown error';
+      let code = status;
       
+      // Parse error response
       if (Buffer.isBuffer(data)) {
         try {
           const jsonData = JSON.parse(data.toString());
@@ -105,26 +109,61 @@ class ElevenLabsService {
         message = String(data);
       }
 
+      // Provide user-friendly error messages
       switch (status) {
         case 401:
-          return { code: 401, message: 'Invalid API key. Please check your ElevenLabs API key.' };
+          return {
+            code: 401,
+            message: 'Invalid API key. Please check your ElevenLabs API key in settings.',
+            technical: message
+          };
         case 403:
-          return { code: 403, message: 'Access forbidden. Model may not be available on your plan.' };
+          return {
+            code: 403,
+            message: 'Access forbidden. The API key may not have permission or the model is not available on your plan.',
+            technical: message
+          };
         case 429:
-          return { code: 429, message: 'Rate limit exceeded. Please wait and try again.' };
+          return {
+            code: 429,
+            message: 'Rate limit exceeded. Please wait a moment and try again.',
+            technical: message
+          };
         case 422:
-          return { code: 422, message: 'Invalid request. Text may be too long or contain unsupported characters.' };
+          return {
+            code: 422,
+            message: 'Invalid request. The text may be too long or contain unsupported characters.',
+            technical: message
+          };
         case 500:
         case 502:
         case 503:
-          return { code: status, message: 'ElevenLabs service temporarily unavailable.' };
+          return {
+            code: status,
+            message: 'ElevenLabs service is temporarily unavailable. Please try again later.',
+            technical: message
+          };
         default:
-          return { code: status, message: `ElevenLabs API error (${status}): ${message}` };
+          return {
+            code: status,
+            message: `ElevenLabs API error (${status}): ${message}`,
+            technical: message
+          };
       }
     } else if (error.request) {
-      return { code: 'NETWORK_ERROR', message: 'Network error: Could not connect to ElevenLabs API.' };
+      // No response received
+      return {
+        code: 'NETWORK_ERROR',
+        message: 'Network error: Could not connect to ElevenLabs API. Please check your internet connection.',
+        technical: error.message
+      };
     } else {
-      return { code: 'UNKNOWN_ERROR', message: error.message || 'Unknown error occurred' };
+      // Other errors
+      return {
+        code: 'UNKNOWN_ERROR',
+        message: error.message || 'Unknown error occurred',
+        technical: error.stack
+      };
     }
   }
 
