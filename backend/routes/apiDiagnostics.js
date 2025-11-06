@@ -358,10 +358,33 @@ async function testYouTube(credentials) {
         message: '❌ YouTube OAuth設定が不完全です',
         details: '必要な情報: client_id, client_secret が見つかりません。',
         solution: [
-          '1. Google Cloud Consoleでプロジェクトを作成',
-          '2. YouTube Data API v3を有効化',
-          '3. OAuth 2.0クライアントIDを作成（デスクトップアプリ型を推奨）',
-          '4. client_idとclient_secretを取得して設定してください'
+          '✅ OAuth 2.0 Playgroundでトークンを取得する手順:',
+          '',
+          '1. Google OAuth 2.0 Playground にアクセス',
+          '   https://developers.google.com/oauthplayground/',
+          '',
+          '2. 右上の設定アイコン⚙️をクリック',
+          '   ✓ "Use your own OAuth credentials" にチェック',
+          '   ✓ OAuth Client ID: あなたのclient_id を入力',
+          '   ✓ OAuth Client secret: あなたのclient_secret を入力',
+          '',
+          '3. Step 1: Select & authorize APIs',
+          '   ✓ YouTube Data API v3 を探して展開',
+          '   ✓ https://www.googleapis.com/auth/youtube.upload をチェック',
+          '   ✓ "Authorize APIs" ボタンをクリック',
+          '   ✓ Googleアカウントでログインし、許可',
+          '',
+          '4. Step 2: Exchange authorization code for tokens',
+          '   ✓ "Exchange authorization code for tokens" ボタンをクリック',
+          '   ✓ Access token と Refresh token が表示される',
+          '',
+          '5. 設定に以下のJSON形式で入力:',
+          '{',
+          '  "client_id": "あなたのクライアントID",',
+          '  "client_secret": "あなたのクライアントシークレット",',
+          '  "access_token": "取得したアクセストークン",',
+          '  "refresh_token": "取得したリフレッシュトークン"',
+          '}'
         ].join('\n')
       };
     }
@@ -372,14 +395,33 @@ async function testYouTube(credentials) {
         message: '⚠️ OAuth認証トークンが未設定です',
         details: 'client_idとclient_secretは設定されていますが、アクセストークンがありません。',
         solution: [
-          'OAuth認証フローを完了する必要があります:',
-          '1. OAuth 2.0認証URLを生成',
-          '2. ブラウザで認証URLにアクセス',
-          '3. Googleアカウントでログインし、YouTubeアクセスを許可',
-          '4. 取得したaccess_tokenとrefresh_tokenを設定に追加',
+          '✅ OAuth 2.0 Playgroundでトークンを取得する手順:',
           '',
-          '※ 現在のアプリではOAuth認証フローが未実装のため、手動でトークンを取得する必要があります。',
-          '※ Google OAuth 2.0 Playgroundなどのツールを使用してトークンを取得できます。'
+          '1. Google OAuth 2.0 Playground にアクセス',
+          '   https://developers.google.com/oauthplayground/',
+          '',
+          '2. 右上の設定アイコン⚙️をクリック',
+          '   ✓ "Use your own OAuth credentials" にチェック',
+          '   ✓ OAuth Client ID: ' + creds.client_id,
+          '   ✓ OAuth Client secret: ' + creds.client_secret,
+          '',
+          '3. Step 1: Select & authorize APIs',
+          '   ✓ YouTube Data API v3 を探して展開',
+          '   ✓ https://www.googleapis.com/auth/youtube.upload をチェック',
+          '   ✓ "Authorize APIs" ボタンをクリック',
+          '   ✓ Googleアカウントでログインし、許可',
+          '',
+          '4. Step 2: Exchange authorization code for tokens',
+          '   ✓ "Exchange authorization code for tokens" ボタンをクリック',
+          '   ✓ Access token と Refresh token が表示される',
+          '',
+          '5. 取得したトークンを現在の設定に追加:',
+          '{',
+          '  "client_id": "' + creds.client_id + '",',
+          '  "client_secret": "' + creds.client_secret + '",',
+          '  "access_token": "取得したアクセストークン(ya29.a0...)",',
+          '  "refresh_token": "取得したリフレッシュトークン(1//0g...)"',
+          '}'
         ].join('\n')
       };
     }
@@ -406,11 +448,26 @@ async function testYouTube(credentials) {
       mine: true
     });
 
+    const channelName = response.data.items?.[0]?.snippet?.title || '不明';
+    const channelId = response.data.items?.[0]?.id || '';
+
     return {
       status: 'success',
-      message: '✅ YouTube API認証が成功しました',
-      details: `チャンネルに接続されました: ${response.data.items?.[0]?.snippet?.title || '不明'}`,
-      solution: 'YouTube APIは正常に動作しています。動画のアップロードが可能です。'
+      message: '✅ YouTube API認証が成功しました！',
+      details: `チャンネル名: ${channelName}\nチャンネルID: ${channelId}`,
+      solution: [
+        '✅ 認証成功！動画のアップロードが可能です。',
+        '',
+        '📝 注意事項:',
+        '• access_tokenは約1時間で期限切れになります',
+        '• refresh_tokenは長期間有効です（取得後は大切に保管）',
+        '• アプリはrefresh_tokenを使用して自動的に新しいaccess_tokenを取得します',
+        '',
+        '🎬 動画アップロードの手順:',
+        '1. 「動画生成」タブでテーマを入力',
+        '2. 「動画を生成・アップロード」ボタンをクリック',
+        '3. 処理完了後、YouTubeリンクが表示されます'
+      ].join('\n')
     };
   } catch (error) {
     console.error('YouTube API test error:', error);
@@ -424,70 +481,90 @@ async function testYouTube(credentials) {
       errorMessage = '❌ OAuth認証トークンが無効または期限切れです';
       errorDetails = 'access_tokenの有効期限が切れているか、refresh_tokenが無効です。';
       errorSolution = [
-        '対応方法:',
-        '1. refresh_tokenを使用して新しいaccess_tokenを取得',
-        '2. または、OAuth認証フローを再実行してトークンを再取得',
+        '🔄 トークンの再取得が必要です:',
         '',
-        '手順:',
-        '• Google OAuth 2.0 Playground (https://developers.google.com/oauthplayground/) にアクセス',
-        '• Step 1: "YouTube Data API v3" を選択し、必要なスコープをチェック',
-        '• "Authorize APIs" をクリック',
-        '• Step 2: "Exchange authorization code for tokens" をクリック',
-        '• 取得したaccess_tokenとrefresh_tokenを設定に追加'
+        '1. Google OAuth 2.0 Playground にアクセス',
+        '   https://developers.google.com/oauthplayground/',
+        '',
+        '2. 右上の設定アイコン⚙️をクリック',
+        '   ✓ "Use your own OAuth credentials" にチェック',
+        '   ✓ client_id と client_secret を入力',
+        '',
+        '3. Step 1で YouTube Data API v3 のスコープを選択',
+        '   ✓ https://www.googleapis.com/auth/youtube.upload',
+        '',
+        '4. 認証を完了し、新しいトークンを取得',
+        '',
+        '5. 取得したaccess_tokenとrefresh_tokenを設定に貼り付け'
       ];
     } else if (error.code === 403) {
       errorMessage = '❌ YouTube Data APIへのアクセスが拒否されました';
-      errorDetails = 'APIキーまたはOAuthクライアントにYouTube Data APIの権限がありません。';
+      errorDetails = 'APIの権限が不足しているか、クォータが超過しています。';
       errorSolution = [
         '対応方法:',
-        '1. Google Cloud ConsoleでYouTube Data API v3が有効化されているか確認',
-        '2. OAuth同意画面でYouTubeスコープが設定されているか確認',
-        '3. プロジェクトのAPIクォータが残っているか確認',
-        '4. OAuth クライアントIDが正しく設定されているか確認'
+        '',
+        '1. Google Cloud Consoleで確認:',
+        '   ✓ YouTube Data API v3が有効化されているか',
+        '   ✓ APIクォータが残っているか',
+        '   ✓ OAuth同意画面が正しく設定されているか',
+        '',
+        '2. OAuth同意画面の設定:',
+        '   ✓ テストユーザーに自分のアカウントを追加',
+        '   ✓ スコープに youtube.upload を追加',
+        '',
+        '3. トークンを再取得してから再試行'
       ];
     } else if (error.message.includes('unauthorized_client')) {
       errorMessage = '❌ OAuthクライアントが認証されていません (unauthorized_client)';
-      errorDetails = 'client_idまたはclient_secretが無効、または認証スコープが不足しています。';
+      errorDetails = 'client_idまたはclient_secretが無効、または設定に問題があります。';
       errorSolution = [
-        '考えられる原因:',
-        '• client_idまたはclient_secretが間違っている',
-        '• OAuthクライアントIDのタイプが適切でない（Web型の場合はredirect_uriが必要）',
-        '• OAuth同意画面の設定が未完了',
-        '• 必要なスコープ（https://www.googleapis.com/auth/youtube.upload）が不足',
+        '🔧 修正手順:',
         '',
-        '対応方法:',
-        '1. Google Cloud Consoleで新しいOAuthクライアントIDを作成',
-        '   → 「デスクトップアプリケーション」タイプを選択（推奨）',
-        '2. OAuth同意画面を設定:',
-        '   → テストユーザーに自分のGoogleアカウントを追加',
-        '   → スコープに「../auth/youtube.upload」を追加',
-        '3. 正しいclient_idとclient_secretをコピー',
-        '4. OAuth 2.0 Playgroundで新しいトークンを取得',
-        '5. すべての認証情報を設定に貼り付け'
+        '1. Google Cloud Consoleでの確認:',
+        '   ✓ client_idとclient_secretが正しいか',
+        '   ✓ OAuthクライアントタイプを確認（デスクトップアプリ推奨）',
+        '   ✓ OAuth同意画面が設定されているか',
+        '',
+        '2. 新しいOAuthクライアントIDを作成:',
+        '   a) Google Cloud Console → 認証情報',
+        '   b) 「認証情報を作成」→「OAuthクライアントID」',
+        '   c) アプリケーションの種類: デスクトップアプリ',
+        '   d) client_idとclient_secretをコピー',
+        '',
+        '3. OAuth 2.0 Playgroundで新しいトークンを取得:',
+        '   ✓ 新しいclient_idとclient_secretを使用',
+        '   ✓ YouTube Data API v3のスコープを選択',
+        '   ✓ 認証完了後、トークンを取得',
+        '',
+        '4. すべての認証情報を設定に貼り付け'
       ];
     } else if (error.message.includes('JSON')) {
       errorMessage = '❌ YouTube認証情報のJSON形式が不正です';
       errorDetails = '設定されたJSONの構文エラーがあります。';
       errorSolution = [
-        '対応方法:',
         '正しいJSON形式で入力してください:',
+        '',
         '{',
-        '  "client_id": "あなたのクライアントID.apps.googleusercontent.com",',
-        '  "client_secret": "あなたのクライアントシークレット",',
-        '  "access_token": "ya29.a0...",',
-        '  "refresh_token": "1//0g..."',
+        '  "client_id": "123456789-abc.apps.googleusercontent.com",',
+        '  "client_secret": "GOCSPX-abcdefghijk",',
+        '  "access_token": "ya29.a0AfB_...(長い文字列)",',
+        '  "refresh_token": "1//0gABC...(長い文字列)"',
         '}',
         '',
-        '※ カンマ、引用符、括弧の位置に注意してください'
+        '⚠️ 注意点:',
+        '• すべてのフィールドをダブルクォート(")で囲む',
+        '• 各行の最後にカンマ(,)を付ける（最後の行を除く）',
+        '• 括弧 { } を忘れない'
       ];
     } else {
       errorMessage = `❌ YouTube API接続エラー: ${error.message}`;
       errorDetails = `エラーコード: ${error.code || '不明'}`;
       errorSolution = [
         '一般的な対応方法:',
+        '',
         '1. インターネット接続を確認',
-        '2. Google Cloud ConsoleでYouTube Data API v3が有効か確認',
-        '3. APIキーとOAuth認証情報を再確認',
+        '2. YouTube Data API v3が有効か確認',
+        '3. 認証情報を再確認',
         '4. しばらく時間をおいてから再試行',
         '',
         `詳細エラー: ${error.message}`

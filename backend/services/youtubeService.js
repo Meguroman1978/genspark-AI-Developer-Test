@@ -8,7 +8,7 @@ class YouTubeService {
     const { videoUrl, title, description, privacyStatus, youtubeCredentials } = config;
 
     try {
-      console.log('Uploading to YouTube...');
+      console.log('🎬 Starting YouTube upload process...');
 
       // Parse YouTube credentials
       let credentials;
@@ -18,35 +18,48 @@ class YouTubeService {
         throw new Error('Invalid YouTube credentials format');
       }
 
+      // Validate required credentials
+      if (!credentials.client_id || !credentials.client_secret) {
+        throw new Error('YouTube OAuth client_id and client_secret are required');
+      }
+
+      if (!credentials.access_token || !credentials.refresh_token) {
+        throw new Error('YouTube OAuth access_token and refresh_token are required. Please complete OAuth authentication.');
+      }
+
       // Set up OAuth2 client
       const oauth2Client = new google.auth.OAuth2(
         credentials.client_id,
         credentials.client_secret,
-        credentials.redirect_uri || 'http://localhost:5000/oauth2callback'
+        credentials.redirect_uri || 'urn:ietf:wg:oauth:2.0:oob'
       );
 
-      // Set credentials
-      if (credentials.access_token) {
-        oauth2Client.setCredentials({
-          access_token: credentials.access_token,
-          refresh_token: credentials.refresh_token,
-          token_type: 'Bearer',
-          expiry_date: credentials.expiry_date
-        });
-      } else {
-        throw new Error('YouTube OAuth token not found. Please authenticate first.');
-      }
+      oauth2Client.setCredentials({
+        access_token: credentials.access_token,
+        refresh_token: credentials.refresh_token,
+        token_type: 'Bearer',
+        expiry_date: credentials.expiry_date
+      });
 
-      // Initialize YouTube API
+      console.log('✅ OAuth2 client configured');
+
+      // Download video file first
+      console.log('📥 Downloading video from Creatomate...');
+      const videoPath = await this.downloadVideo(videoUrl);
+      const videoStats = fs.statSync(videoPath);
+      console.log(`✅ Video downloaded: ${videoStats.size} bytes`);
+
+      // Use Resumable Upload via Google API Client
+      // The googleapis library handles resumable upload internally
       const youtube = google.youtube({
         version: 'v3',
         auth: oauth2Client
       });
 
-      // Download video file first
-      const videoPath = await this.downloadVideo(videoUrl);
+      console.log('📤 Starting resumable upload to YouTube...');
+      console.log(`   Title: ${title}`);
+      console.log(`   Privacy: ${privacyStatus || 'private'}`);
 
-      // Upload to YouTube
       const response = await youtube.videos.insert({
         part: ['snippet', 'status'],
         requestBody: {
@@ -55,39 +68,66 @@ class YouTubeService {
             description: description,
             categoryId: '22', // People & Blogs
             tags: ['AI Generated', 'Automated Video', 'AI'],
+            defaultLanguage: 'ja',
+            defaultAudioLanguage: 'ja'
           },
           status: {
             privacyStatus: privacyStatus || 'private',
-            selfDeclaredMadeForKids: false
+            selfDeclaredMadeForKids: false,
+            embeddable: true,
+            publicStatsViewable: true
           }
         },
         media: {
-          body: fs.createReadStream(videoPath)
+          body: fs.createReadStream(videoPath),
+          mimeType: 'video/mp4'
         }
       });
 
       // Clean up temporary file
       try {
         fs.unlinkSync(videoPath);
+        console.log('🗑️ Temporary file cleaned up');
       } catch (e) {
-        console.error('Error deleting temp file:', e);
+        console.error('⚠️ Error deleting temp file:', e.message);
       }
 
       const videoId = response.data.id;
       const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
       
-      console.log(`Video uploaded successfully: ${youtubeUrl}`);
+      console.log(`✅ Video uploaded successfully!`);
+      console.log(`   Video ID: ${videoId}`);
+      console.log(`   URL: ${youtubeUrl}`);
+      
       return youtubeUrl;
     } catch (error) {
-      console.error('YouTube upload error:', error.message);
+      console.error('❌ YouTube upload error:', error.message);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       
-      if (error.message.includes('authenticate')) {
-        throw new Error('YouTube authentication required. Please configure OAuth credentials properly.');
+      // Enhanced error messages
+      if (error.code === 401 || error.message.includes('invalid_grant')) {
+        throw new Error('YouTube OAuth tokens are invalid or expired. Please obtain new tokens from OAuth 2.0 Playground.');
       }
       
-      // Return a mock URL for demonstration
-      console.log('Using mock YouTube URL');
-      return `https://youtube.com/watch?v=MOCK_VIDEO_${Date.now()}`;
+      if (error.code === 403) {
+        throw new Error('YouTube API access denied. Please ensure YouTube Data API v3 is enabled in Google Cloud Console.');
+      }
+
+      if (error.message.includes('unauthorized_client')) {
+        throw new Error('OAuth client is not authorized. Please check client_id and client_secret, and ensure OAuth consent screen is properly configured.');
+      }
+      
+      if (error.message.includes('authenticate') || error.message.includes('token')) {
+        throw new Error('YouTube authentication failed. Please verify your OAuth credentials (client_id, client_secret, access_token, refresh_token).');
+      }
+      
+      throw error;
     }
   }
 
