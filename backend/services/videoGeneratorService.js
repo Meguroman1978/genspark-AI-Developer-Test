@@ -8,7 +8,7 @@ const pexelsService = require('./pexelsService');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, channelName, privacyStatus, contentType, keys, db } = config;
+    const { jobId, theme, duration, channelName, privacyStatus, contentType, language, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -25,7 +25,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Creating story script...');
       console.log(`[Job ${jobId}] Generating script`);
       
-      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType);
+      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType, language);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
 
       // Step 3: Generate Audio with ElevenLabs
@@ -108,11 +108,20 @@ class VideoGeneratorService {
     }
   }
 
-  async generateScript(theme, duration, searchInfo, openaiKey, contentType) {
+  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja') {
     const openai = new OpenAI({ apiKey: openaiKey });
 
     // Calculate approximate word count (average speaking rate: 150 words/minute)
     const targetWords = Math.floor((duration / 60) * 150);
+
+    // Language settings
+    const languageSettings = {
+      ja: { name: 'Japanese', instruction: 'Write the script in Japanese (日本語).' },
+      en: { name: 'English', instruction: 'Write the script in English.' },
+      zh: { name: 'Chinese', instruction: 'Write the script in Chinese (中文).' }
+    };
+    
+    const langSetting = languageSettings[language] || languageSettings['ja'];
 
     // Content type specific instructions
     const typeInstructions = {
@@ -138,6 +147,7 @@ Requirements:
 - Write in a natural, engaging narrative style
 - Include fascinating facts and details
 - Structure the content to flow smoothly
+- ${langSetting.instruction}
 - Make it suitable for voice narration
 
 Also, suggest 3-5 visual scenes that would accompany this narration. For each scene, provide:

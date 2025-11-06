@@ -7,6 +7,7 @@ function ApiKeysSettings({ onSaved }) {
     elevenlabs_key: '',
     creatomate_key: '',
     creatomate_template_id: '',
+    creatomate_public_token: '',
     stability_ai_key: '',
     youtube_credentials: ''
   });
@@ -79,6 +80,7 @@ function ApiKeysSettings({ onSaved }) {
           elevenlabs_key: '',
           creatomate_key: '',
           creatomate_template_id: '',
+          creatomate_public_token: '',
           stability_ai_key: '',
           youtube_credentials: ''
         });
@@ -193,6 +195,23 @@ function ApiKeysSettings({ onSaved }) {
             className="form-input"
           />
           <span className="help-text">テンプレートはCreatomateダッシュボードで作成・確認できます</span>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="creatomate_public_token">
+            Creatomate Public Token
+            <span className="help-text">（オプション）パブリックトークン。テンプレート内で動的画像生成を使用する場合に必要</span>
+          </label>
+          <input
+            type="password"
+            id="creatomate_public_token"
+            name="creatomate_public_token"
+            value={formData.creatomate_public_token}
+            onChange={handleChange}
+            placeholder="pk_..."
+            className="form-input"
+          />
+          <span className="help-text">パブリックトークンはCreatomateダッシュボードのAPI設定で確認できます</span>
         </div>
 
         <div className="form-group">

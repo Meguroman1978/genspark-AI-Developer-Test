@@ -7,7 +7,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     duration: 60,
     channelName: '',
     privacyStatus: 'private',
-    contentType: ''
+    contentType: '',
+    language: 'ja'
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -83,7 +84,8 @@ function VideoGenerator({ apiKeysConfigured }) {
           duration: parseInt(formData.duration),
           channelName: formData.channelName,
           privacyStatus: formData.privacyStatus,
-          contentType: formData.contentType
+          contentType: formData.contentType,
+          language: formData.language
         })
       });
 
@@ -195,6 +197,27 @@ function VideoGenerator({ apiKeysConfigured }) {
           </div>
 
           <div className="form-group">
+            <label htmlFor="language">
+              <span className="required">* </span>動画の言語
+              <span className="help-text">スクリプトと音声の言語</span>
+            </label>
+            <select
+              id="language"
+              name="language"
+              value={formData.language}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="zh">🇨🇳 中文</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="privacyStatus">
               YouTube公開設定
             </label>
@@ -210,6 +233,10 @@ function VideoGenerator({ apiKeysConfigured }) {
               <option value="unlisted">限定公開 (Unlisted)</option>
               <option value="public">公開 (Public)</option>
             </select>
+          </div>
+
+          <div className="form-group">
+            {/* Empty div for consistent grid layout */}
           </div>
         </div>
 

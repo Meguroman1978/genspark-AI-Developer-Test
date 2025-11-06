@@ -3,103 +3,34 @@ import './ApiDiagnostics.css';
 
 function ApiDiagnostics() {
   const [testing, setTesting] = useState(false);
-  const [results, setResults] = useState({});
+  const [results, setResults] = useState(null);
   const [error, setError] = useState('');
 
   const runDiagnostics = async () => {
     setTesting(true);
     setError('');
-    setResults({});
+    setResults(null);
 
     try {
-      // Get API keys
-      const keysResponse = await fetch('/api/keys/actual?userId=default_user');
-      if (!keysResponse.ok) {
-        throw new Error('APIキーが設定されていません');
-      }
+      const response = await fetch('/api/diagnostics/diagnose', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: 'default_user'
+        })
+      });
 
-      const keys = await keysResponse.json();
-      const newResults = {};
+      const data = await response.json();
 
-      // Test OpenAI
-      if (keys.openai_key) {
-        console.log('Testing OpenAI...');
-        try {
-          const response = await fetch('/api/diagnostics/test-openai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey: keys.openai_key })
-          });
-          const data = await response.json();
-          newResults.openai = {
-            status: data.success ? 'success' : 'error',
-            message: data.message || data.error,
-            details: data.details
-          };
-        } catch (err) {
-          newResults.openai = {
-            status: 'error',
-            message: err.message
-          };
-        }
+      if (response.ok) {
+        setResults(data);
       } else {
-        newResults.openai = { status: 'not_configured', message: 'APIキーが設定されていません' };
+        setError(data.error || '診断の実行に失敗しました');
       }
-
-      // Test ElevenLabs
-      if (keys.elevenlabs_key) {
-        console.log('Testing ElevenLabs...');
-        try {
-          const response = await fetch('/api/diagnostics/test-elevenlabs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey: keys.elevenlabs_key })
-          });
-          const data = await response.json();
-          newResults.elevenlabs = {
-            status: data.success ? 'success' : 'error',
-            message: data.message || data.error,
-            details: data.details,
-            test: data.test
-          };
-        } catch (err) {
-          newResults.elevenlabs = {
-            status: 'error',
-            message: err.message
-          };
-        }
-      } else {
-        newResults.elevenlabs = { status: 'not_configured', message: 'APIキーが設定されていません' };
-      }
-
-      // Test Creatomate
-      if (keys.creatomate_key) {
-        console.log('Testing Creatomate...');
-        try {
-          const response = await fetch('/api/diagnostics/test-creatomate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey: keys.creatomate_key })
-          });
-          const data = await response.json();
-          newResults.creatomate = {
-            status: data.success ? 'success' : 'error',
-            message: data.message || data.error || data.user_message,
-            details: data.details
-          };
-        } catch (err) {
-          newResults.creatomate = {
-            status: 'error',
-            message: err.message
-          };
-        }
-      } else {
-        newResults.creatomate = { status: 'not_configured', message: 'APIキーが設定されていません（オプション）' };
-      }
-
-      setResults(newResults);
     } catch (err) {
-      setError(err.message);
+      setError('エラーが発生しました: ' + err.message);
     } finally {
       setTesting(false);
     }
@@ -111,7 +42,7 @@ function ApiDiagnostics() {
         return '✅';
       case 'error':
         return '❌';
-      case 'not_configured':
+      case 'warning':
         return '⚠️';
       default:
         return '❓';
@@ -124,7 +55,7 @@ function ApiDiagnostics() {
         return '#28a745';
       case 'error':
         return '#dc3545';
-      case 'not_configured':
+      case 'warning':
         return '#ffc107';
       default:
         return '#6c757d';
@@ -133,93 +64,134 @@ function ApiDiagnostics() {
 
   return (
     <div className="api-diagnostics">
-      <h2>🔍 API診断ツール</h2>
+      <h2>🔬 API診断</h2>
       <p className="description">
-        各APIサービスへの接続状態を確認し、問題があればエラーの詳細を表示します。
+        設定されたAPIキーの動作確認を行います。各APIに実際のリクエストを送信して、正常に動作するかをチェックします。
       </p>
 
       <button 
         onClick={runDiagnostics} 
-        className="test-button"
+        className="diagnose-button"
         disabled={testing}
       >
-        {testing ? '🔄 テスト中...' : '🚀 診断を実行'}
+        {testing ? '🔄 診断中...' : '🚀 診断を実行'}
       </button>
 
       {error && (
         <div className="error-message">
-          ❌ エラー: {error}
+          ❌ {error}
         </div>
       )}
 
-      {Object.keys(results).length > 0 && (
-        <div className="results-container">
-          <h3>診断結果</h3>
-
-          {/* OpenAI */}
-          <div className="result-card" style={{ borderLeftColor: getStatusColor(results.openai?.status) }}>
-            <div className="result-header">
-              <span className="result-icon">{getStatusIcon(results.openai?.status)}</span>
-              <h4>OpenAI API</h4>
-            </div>
-            <p className="result-message">{results.openai?.message}</p>
-            {results.openai?.details && (
-              <div className="result-details">
-                <pre>{JSON.stringify(results.openai.details, null, 2)}</pre>
+      {results && (
+        <div className="diagnostic-results">
+          <h3>📊 診断結果</h3>
+          
+          {results.openai && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.openai.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.openai.status)}</span>
+                <span className="diagnostic-name">OpenAI API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.openai.status) }}>
+                  {results.openai.status === 'success' ? '正常' : 'エラー'}
+                </span>
               </div>
-            )}
-          </div>
-
-          {/* ElevenLabs */}
-          <div className="result-card" style={{ borderLeftColor: getStatusColor(results.elevenlabs?.status) }}>
-            <div className="result-header">
-              <span className="result-icon">{getStatusIcon(results.elevenlabs?.status)}</span>
-              <h4>ElevenLabs API</h4>
-            </div>
-            <p className="result-message">{results.elevenlabs?.message}</p>
-            {results.elevenlabs?.test && (
-              <p className="result-test">失敗したテスト: {results.elevenlabs.test}</p>
-            )}
-            {results.elevenlabs?.details && (
-              <div className="result-details">
-                <pre>{JSON.stringify(results.elevenlabs.details, null, 2)}</pre>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.openai.message}</p>
+                {results.openai.details && <p><strong>詳細:</strong> {results.openai.details}</p>}
+                {results.openai.error && <p className="error-detail">{results.openai.error}</p>}
               </div>
-            )}
-          </div>
-
-          {/* Creatomate */}
-          <div className="result-card" style={{ borderLeftColor: getStatusColor(results.creatomate?.status) }}>
-            <div className="result-header">
-              <span className="result-icon">{getStatusIcon(results.creatomate?.status)}</span>
-              <h4>Creatomate API</h4>
             </div>
-            <p className="result-message">{results.creatomate?.message}</p>
-            {results.creatomate?.details && (
-              <div className="result-details">
-                <pre>{JSON.stringify(results.creatomate.details, null, 2)}</pre>
+          )}
+
+          {results.elevenlabs && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.elevenlabs.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.elevenlabs.status)}</span>
+                <span className="diagnostic-name">ElevenLabs API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.elevenlabs.status) }}>
+                  {results.elevenlabs.status === 'success' ? '正常' : 'エラー'}
+                </span>
               </div>
-            )}
-          </div>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.elevenlabs.message}</p>
+                {results.elevenlabs.details && <p><strong>詳細:</strong> {results.elevenlabs.details}</p>}
+                {results.elevenlabs.error && <p className="error-detail">{results.elevenlabs.error}</p>}
+              </div>
+            </div>
+          )}
+
+          {results.creatomate && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.creatomate.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.creatomate.status)}</span>
+                <span className="diagnostic-name">Creatomate API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.creatomate.status) }}>
+                  {results.creatomate.status === 'success' ? '正常' : 'エラー'}
+                </span>
+              </div>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.creatomate.message}</p>
+                {results.creatomate.details && <p><strong>詳細:</strong> {results.creatomate.details}</p>}
+                {results.creatomate.error && <p className="error-detail">{results.creatomate.error}</p>}
+              </div>
+            </div>
+          )}
+
+          {results.stability_ai && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.stability_ai.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.stability_ai.status)}</span>
+                <span className="diagnostic-name">Stability AI API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.stability_ai.status) }}>
+                  {results.stability_ai.status === 'success' ? '正常' : 'エラー'}
+                </span>
+              </div>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.stability_ai.message}</p>
+                {results.stability_ai.details && <p><strong>詳細:</strong> {results.stability_ai.details}</p>}
+                {results.stability_ai.error && <p className="error-detail">{results.stability_ai.error}</p>}
+              </div>
+            </div>
+          )}
+
+          {results.youtube && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.youtube.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.youtube.status)}</span>
+                <span className="diagnostic-name">YouTube API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.youtube.status) }}>
+                  {results.youtube.status === 'success' ? '正常' : 'エラー'}
+                </span>
+              </div>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.youtube.message}</p>
+                {results.youtube.details && <p><strong>詳細:</strong> {results.youtube.details}</p>}
+                {results.youtube.error && <p className="error-detail">{results.youtube.error}</p>}
+              </div>
+            </div>
+          )}
+
+          {!results.openai && !results.elevenlabs && !results.creatomate && !results.stability_ai && !results.youtube && (
+            <div className="no-keys-message">
+              <p>⚠️ APIキーが設定されていません。「⚙️ 設定」タブでAPIキーを入力してください。</p>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="help-section">
-        <h3>📝 トラブルシューティング</h3>
-        <div className="help-content">
-          <h4>❌ エラーが表示される場合</h4>
-          <ul>
-            <li><strong>401 Unauthorized:</strong> APIキーが無効または期限切れです</li>
-            <li><strong>403 Forbidden:</strong> アクセス権限がありません</li>
-            <li><strong>429 Rate Limit:</strong> API使用量の制限に達しました</li>
-            <li><strong>Network Error:</strong> インターネット接続を確認してください</li>
-          </ul>
-
-          <h4>✅ すべて成功する場合</h4>
-          <p>APIキーは正常に設定されており、動画生成を開始できます！</p>
-
-          <h4>⚠️ 設定されていない場合</h4>
-          <p>「⚙️ 設定」タブでAPIキーを設定してください。</p>
-        </div>
+      <div className="diagnostic-info">
+        <h3>📋 診断について</h3>
+        <ul>
+          <li><strong>OpenAI:</strong> GPT-4 APIへの接続とモデルリスト取得をテストします</li>
+          <li><strong>ElevenLabs:</strong> 音声合成APIへの接続とユーザー情報取得をテストします</li>
+          <li><strong>Creatomate:</strong> 動画編集APIへの接続とテンプレートリスト取得をテストします</li>
+          <li><strong>Stability AI:</strong> 画像生成APIへの接続とアカウント情報取得をテストします</li>
+          <li><strong>YouTube:</strong> OAuth認証情報の有効性とチャンネル情報取得をテストします</li>
+        </ul>
+        <p className="note">
+          ⚠️ <strong>注意:</strong> この診断では実際のAPIリクエストを送信しますが、課金が発生するような操作（動画生成、音声合成など）は行いません。
+        </p>
       </div>
     </div>
   );

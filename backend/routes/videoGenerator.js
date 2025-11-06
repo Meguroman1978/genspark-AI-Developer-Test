@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, channelName, privacyStatus, contentType } = req.body;
+  const { theme, duration, channelName, privacyStatus, contentType, language } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -34,9 +34,9 @@ router.post('/generate', async (req, res) => {
       // Create job record
       const now = new Date().toISOString();
       db.run(
-        `INSERT INTO video_jobs (user_id, theme, duration, channel_name, privacy_status, content_type, status, progress, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
-        [userId, theme, duration, channelName, privacyStatus || 'private', contentType || null, now, now],
+        `INSERT INTO video_jobs (user_id, theme, duration, channel_name, privacy_status, content_type, language, status, progress, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
+        [userId, theme, duration, channelName, privacyStatus || 'private', contentType || null, language || 'ja', now, now],
         function(err) {
           if (err) {
             console.error('Error creating video job:', err);
@@ -60,6 +60,7 @@ router.post('/generate', async (req, res) => {
             channelName,
             privacyStatus: privacyStatus || 'private',
             contentType: contentType || null,
+            language: language || 'ja',
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,
@@ -111,7 +112,7 @@ router.get('/jobs', (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.all(
-    'SELECT id, theme, duration, status, progress, youtube_url, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+    'SELECT id, theme, duration, status, progress, youtube_url, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 3',
     [userId],
     (err, jobs) => {
       if (err) {

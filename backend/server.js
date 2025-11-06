@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const videoGeneratorRoutes = require('./routes/videoGenerator');
 const apiKeyRoutes = require('./routes/apiKeys');
+const apiDiagnosticsRoutes = require('./routes/apiDiagnostics');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,11 @@ function initializeDatabase() {
           console.error('Error adding stability_ai_key column:', err.message);
         }
       });
+      db.run(`ALTER TABLE api_keys ADD COLUMN creatomate_public_token TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding creatomate_public_token column:', err.message);
+        }
+      });
     }
   });
 
@@ -72,6 +78,7 @@ function initializeDatabase() {
       channel_name TEXT,
       privacy_status TEXT,
       content_type TEXT,
+      language TEXT DEFAULT 'ja',
       status TEXT DEFAULT 'pending',
       progress TEXT,
       youtube_url TEXT,
@@ -84,10 +91,15 @@ function initializeDatabase() {
       console.error('Error creating video_jobs table:', err.message);
     } else {
       console.log('video_jobs table ready');
-      // Add new column if it doesn't exist
+      // Add new columns if they don't exist
       db.run(`ALTER TABLE video_jobs ADD COLUMN content_type TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column')) {
           console.error('Error adding content_type column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN language TEXT DEFAULT 'ja'`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding language column:', err.message);
         }
       });
     }
@@ -97,8 +109,7 @@ function initializeDatabase() {
 // Routes
 app.use('/api/keys', apiKeyRoutes);
 app.use('/api/video', videoGeneratorRoutes);
-const diagnosticsRoutes = require('./routes/diagnostics');
-app.use('/api/diagnostics', diagnosticsRoutes);
+app.use('/api/diagnostics', apiDiagnosticsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

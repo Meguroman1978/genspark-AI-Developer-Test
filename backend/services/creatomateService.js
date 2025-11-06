@@ -68,6 +68,7 @@ class CreatomateService {
       console.log(`${logPrefix} ✅ Render created successfully`);
       console.log(`${logPrefix} Render ID: ${response.data.id}`);
       console.log(`${logPrefix} Status: ${response.data.status}`);
+      console.log(`${logPrefix} Full response:`, JSON.stringify(response.data, null, 2));
 
       // Wait for completion
       const videoUrl = await this.waitForRender(response.data.id, creatomateKey, jobId);
@@ -127,10 +128,17 @@ class CreatomateService {
         );
 
         const status = response.data.status;
-        console.log(`${logPrefix} Render status (${i + 1}/${maxAttempts}): ${status}`);
+        const progress = response.data.progress || 0;
+        console.log(`${logPrefix} Render status (${i + 1}/${maxAttempts}): ${status} (${progress}%)`);
+        
+        // Log full response every 10 checks for debugging
+        if (i % 10 === 0) {
+          console.log(`${logPrefix} Full status response:`, JSON.stringify(response.data, null, 2));
+        }
         
         if (status === 'succeeded') {
           console.log(`${logPrefix} ✅ Render succeeded!`);
+          console.log(`${logPrefix} Video URL: ${response.data.url}`);
           return response.data.url;
         } else if (status === 'failed') {
           const errorMsg = response.data.error_message || 'Unknown error';
@@ -147,10 +155,18 @@ class CreatomateService {
         // Wait 5 seconds before next check
         await new Promise(resolve => setTimeout(resolve, 5000));
       } catch (error) {
+        console.error(`${logPrefix} ⚠️ Error checking render status (attempt ${i + 1}/${maxAttempts}):`, error.message);
+        
+        if (error.response) {
+          console.error(`${logPrefix} Response status: ${error.response.status}`);
+          console.error(`${logPrefix} Response data:`, error.response.data);
+        }
+        
         if (i === maxAttempts - 1) {
           throw error;
         }
-        console.error(`${logPrefix} Error checking render status:`, error.message);
+        
+        // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
