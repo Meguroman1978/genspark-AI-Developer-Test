@@ -98,8 +98,19 @@ function ApiDiagnostics() {
               </div>
               <div className="diagnostic-details">
                 <p><strong>メッセージ:</strong> {results.openai.message}</p>
-                {results.openai.details && <p><strong>詳細:</strong> {results.openai.details}</p>}
-                {results.openai.error && <p className="error-detail">{results.openai.error}</p>}
+                {results.openai.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.openai.details}</p>
+                  </div>
+                )}
+                {results.openai.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.openai.solution}</pre>
+                  </div>
+                )}
+                {results.openai.error && <p className="error-detail">技術的エラー: {results.openai.error}</p>}
               </div>
             </div>
           )}
@@ -115,8 +126,19 @@ function ApiDiagnostics() {
               </div>
               <div className="diagnostic-details">
                 <p><strong>メッセージ:</strong> {results.elevenlabs.message}</p>
-                {results.elevenlabs.details && <p><strong>詳細:</strong> {results.elevenlabs.details}</p>}
-                {results.elevenlabs.error && <p className="error-detail">{results.elevenlabs.error}</p>}
+                {results.elevenlabs.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.elevenlabs.details}</p>
+                  </div>
+                )}
+                {results.elevenlabs.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.elevenlabs.solution}</pre>
+                  </div>
+                )}
+                {results.elevenlabs.error && <p className="error-detail">技術的エラー: {results.elevenlabs.error}</p>}
               </div>
             </div>
           )}
@@ -132,8 +154,19 @@ function ApiDiagnostics() {
               </div>
               <div className="diagnostic-details">
                 <p><strong>メッセージ:</strong> {results.creatomate.message}</p>
-                {results.creatomate.details && <p><strong>詳細:</strong> {results.creatomate.details}</p>}
-                {results.creatomate.error && <p className="error-detail">{results.creatomate.error}</p>}
+                {results.creatomate.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.creatomate.details}</p>
+                  </div>
+                )}
+                {results.creatomate.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.creatomate.solution}</pre>
+                  </div>
+                )}
+                {results.creatomate.error && <p className="error-detail">技術的エラー: {results.creatomate.error}</p>}
               </div>
             </div>
           )}
@@ -149,8 +182,19 @@ function ApiDiagnostics() {
               </div>
               <div className="diagnostic-details">
                 <p><strong>メッセージ:</strong> {results.stability_ai.message}</p>
-                {results.stability_ai.details && <p><strong>詳細:</strong> {results.stability_ai.details}</p>}
-                {results.stability_ai.error && <p className="error-detail">{results.stability_ai.error}</p>}
+                {results.stability_ai.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.stability_ai.details}</p>
+                  </div>
+                )}
+                {results.stability_ai.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.stability_ai.solution}</pre>
+                  </div>
+                )}
+                {results.stability_ai.error && <p className="error-detail">技術的エラー: {results.stability_ai.error}</p>}
               </div>
             </div>
           )}
@@ -166,8 +210,19 @@ function ApiDiagnostics() {
               </div>
               <div className="diagnostic-details">
                 <p><strong>メッセージ:</strong> {results.youtube.message}</p>
-                {results.youtube.details && <p><strong>詳細:</strong> {results.youtube.details}</p>}
-                {results.youtube.error && <p className="error-detail">{results.youtube.error}</p>}
+                {results.youtube.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.youtube.details}</p>
+                  </div>
+                )}
+                {results.youtube.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.youtube.solution}</pre>
+                  </div>
+                )}
+                {results.youtube.error && <p className="error-detail">技術的エラー: {results.youtube.error}</p>}
               </div>
             </div>
           )}
