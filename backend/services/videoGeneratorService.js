@@ -29,7 +29,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Generating voice narration...');
       console.log(`[Job ${jobId}] Generating audio`);
       
-      const audioUrl = await elevenlabsService.generateAudio(script.narration, keys.elevenlabsKey);
+      const audioUrl = await elevenlabsService.generateAudio(script.narration, keys.elevenlabsKey, jobId);
       console.log(`[Job ${jobId}] Audio generated: ${audioUrl}`);
 
       // Step 4: Generate/Fetch Visual Assets
@@ -50,7 +50,8 @@ class VideoGeneratorService {
           visualAssets,
           duration,
           theme,
-          creatomateKey: keys.creatomateKey
+          creatomateKey: keys.creatomateKey,
+          jobId
         });
       } else {
         // Fallback: Create a simple video reference

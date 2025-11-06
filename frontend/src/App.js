@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import ApiKeysSettings from './components/ApiKeysSettings';
 import VideoGenerator from './components/VideoGenerator';
+import ApiDiagnostics from './components/ApiDiagnostics';
 
 function App() {
   const [activeTab, setActiveTab] = useState('generator');
@@ -55,6 +56,12 @@ function App() {
         >
           ⚙️ 設定（APIキー）
         </button>
+        <button
+          className={`tab ${activeTab === 'diagnostics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('diagnostics')}
+        >
+          🔍 API診断
+        </button>
       </div>
 
       <div className="content">
@@ -70,6 +77,10 @@ function App() {
 
         {activeTab === 'settings' && (
           <ApiKeysSettings onSaved={handleApiKeysSaved} />
+        )}
+
+        {activeTab === 'diagnostics' && (
+          <ApiDiagnostics />
         )}
       </div>
 

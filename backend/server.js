@@ -77,6 +77,8 @@ function initializeDatabase() {
 // Routes
 app.use('/api/keys', apiKeyRoutes);
 app.use('/api/video', videoGeneratorRoutes);
+const diagnosticsRoutes = require('./routes/diagnostics');
+app.use('/api/diagnostics', diagnosticsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
