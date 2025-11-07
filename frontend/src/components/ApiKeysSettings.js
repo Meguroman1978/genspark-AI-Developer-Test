@@ -311,14 +311,46 @@ function ApiKeysSettings({ onSaved }) {
                   client_id と client_secret を入力
                 </li>
                 <li>
-                  Step 1: 「YouTube Data API v3」を展開し、以下にチェック：<br/>
-                  <code>https://www.googleapis.com/auth/youtube.upload</code>
+                  <strong className="highlight">【重要】Step 1: スコープを正しく選択</strong><br/>
+                  <div className="scope-selection">
+                    <p><strong>方法A：リストから選択（推奨）</strong></p>
+                    <ul>
+                      <li>左側のリストから「YouTube Data API v3」を探して展開</li>
+                      <li>以下のスコープに<strong>必ずチェック</strong>：</li>
+                    </ul>
+                    <div className="scope-list">
+                      <code>☑ https://www.googleapis.com/auth/youtube.upload</code><br/>
+                      <code>☑ https://www.googleapis.com/auth/youtube</code><br/>
+                      <code>☑ https://www.googleapis.com/auth/youtube.readonly</code>
+                    </div>
+                    <p><strong>方法B：直接入力</strong></p>
+                    <ul>
+                      <li>"Input your own scopes" の欄に以下を貼り付け：</li>
+                    </ul>
+                    <div className="scope-list">
+                      <code>https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube</code>
+                    </div>
+                  </div>
+                  <div className="warning-banner" style={{marginTop: '10px'}}>
+                    ⚠️ スコープを選択しないと、<code>Insufficient Permission</code>エラーになります！
+                  </div>
                 </li>
                 <li>
-                  「Authorize APIs」ボタンをクリック → Googleでログイン・許可
+                  「Authorize APIs」ボタンをクリック → Googleでログイン
+                </li>
+                <li>
+                  <strong>同意画面で権限を確認</strong>：<br/>
+                  「YouTubeアカウントの管理」や「動画のアップロード」などの<br/>
+                  権限が表示されることを確認して許可
                 </li>
                 <li>
                   Step 2: 「Exchange authorization code for tokens」をクリック
+                </li>
+                <li>
+                  <strong>スコープを確認</strong>：<br/>
+                  画面下部の「scope」欄に<br/>
+                  <code>youtube.upload</code>や<code>youtube</code>が<br/>
+                  含まれていることを確認
                 </li>
                 <li>
                   Access token と Refresh token をコピー

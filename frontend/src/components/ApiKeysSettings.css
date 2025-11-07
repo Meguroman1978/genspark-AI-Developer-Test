@@ -286,3 +286,42 @@
   display: block;
   margin-bottom: 5px;
 }
+
+.help-box .scope-selection {
+  background: #f0f8ff;
+  border-left: 4px solid #0066cc;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.help-box .scope-selection p {
+  margin: 10px 0 5px 0;
+  font-weight: 600;
+  color: #0066cc;
+}
+
+.help-box .scope-selection ul {
+  margin: 5px 0;
+  padding-left: 20px;
+}
+
+.help-box .scope-selection ul li {
+  margin: 5px 0;
+}
+
+.help-box .scope-list {
+  background: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  margin: 5px 0;
+  border: 1px solid #d1e7fd;
+}
+
+.help-box .scope-list code {
+  display: block;
+  font-family: 'Courier New', monospace;
+  color: #2c3e50;
+  margin: 5px 0;
+  font-size: 13px;
+}
