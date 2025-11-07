@@ -112,7 +112,7 @@ router.get('/jobs', (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.all(
-    'SELECT id, theme, duration, status, progress, youtube_url, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 3',
+    'SELECT id, theme, duration, status, progress, youtube_url, video_url, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 3',
     [userId],
     (err, jobs) => {
       if (err) {

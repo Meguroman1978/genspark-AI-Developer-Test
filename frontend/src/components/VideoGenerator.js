@@ -321,25 +321,78 @@ function VideoGenerator({ apiKeysConfigured }) {
                 {jobStatus.youtube_url ? (
                   <>
                     <p className="success-message">✅ 動画が正常に生成され、YouTubeにアップロードされました！</p>
-                    <a 
-                      href={jobStatus.youtube_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="youtube-link"
-                    >
-                      🎬 YouTubeで視聴する
-                    </a>
+                    <div className="video-links">
+                      <a 
+                        href={jobStatus.youtube_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="youtube-link primary-link"
+                      >
+                        🎬 YouTubeで視聴する
+                      </a>
+                      {jobStatus.video_url && (
+                        <a 
+                          href={jobStatus.video_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="video-link secondary-link"
+                        >
+                          📥 動画ファイルをダウンロード
+                        </a>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
                     <p className="success-message">✅ 動画が正常に生成されました！</p>
+                    {jobStatus.video_url && (
+                      <div className="video-links">
+                        <a 
+                          href={jobStatus.video_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="video-link primary-link"
+                        >
+                          🎬 動画を視聴する
+                        </a>
+                        <a 
+                          href={jobStatus.video_url} 
+                          download
+                          className="video-link secondary-link"
+                        >
+                          📥 動画ファイルをダウンロード
+                        </a>
+                      </div>
+                    )}
                     <div className="info-box">
-                      <p>📝 <strong>注意:</strong> YouTube認証情報が設定されていないため、YouTubeへのアップロードはスキップされました。</p>
-                      <p>動画をYouTubeにアップロードするには:</p>
-                      <ol>
-                        <li>「⚙️ 設定」タブでYouTube API認証情報を設定してください</li>
-                        <li>再度動画を生成すると、自動的にYouTubeにアップロードされます</li>
-                      </ol>
+                      {jobStatus.progress && jobStatus.progress.includes('YouTube upload failed') ? (
+                        <>
+                          <p>⚠️ <strong>YouTube アップロードに失敗しました</strong></p>
+                          <p>動画は正常に生成されましたが、YouTubeへのアップロードに失敗しました。</p>
+                          <p><strong>考えられる原因:</strong></p>
+                          <ul>
+                            <li>access_tokenの有効期限が切れている（約1時間）</li>
+                            <li>YouTubeスコープが不足している</li>
+                            <li>OAuth認証情報が無効</li>
+                          </ul>
+                          <p><strong>対処方法:</strong></p>
+                          <ol>
+                            <li>「🔍 API診断」タブでYouTube API接続を確認</li>
+                            <li>エラーが出る場合は、OAuth 2.0 Playgroundで新しいトークンを取得</li>
+                            <li>「⚙️ 設定」タブで新しいaccess_tokenを設定</li>
+                            <li>上記の動画ファイルを手動でYouTubeにアップロード、または再生成</li>
+                          </ol>
+                        </>
+                      ) : (
+                        <>
+                          <p>📝 <strong>注意:</strong> YouTube認証情報が設定されていないため、YouTubeへのアップロードはスキップされました。</p>
+                          <p>動画をYouTubeにアップロードするには:</p>
+                          <ol>
+                            <li>「⚙️ 設定」タブでYouTube API認証情報を設定してください</li>
+                            <li>再度動画を生成すると、自動的にYouTubeにアップロードされます</li>
+                          </ol>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -369,16 +422,28 @@ function VideoGenerator({ apiKeysConfigured }) {
                   <span className="job-date">
                     {new Date(job.created_at).toLocaleString('ja-JP')}
                   </span>
-                  {job.youtube_url && (
-                    <a 
-                      href={job.youtube_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="job-link"
-                    >
-                      YouTubeで見る →
-                    </a>
-                  )}
+                  <div className="job-links">
+                    {job.youtube_url && (
+                      <a 
+                        href={job.youtube_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="job-link youtube-job-link"
+                      >
+                        🎬 YouTube
+                      </a>
+                    )}
+                    {job.video_url && (
+                      <a 
+                        href={job.video_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="job-link video-job-link"
+                      >
+                        📥 動画
+                      </a>
+                    )}
+                  </div>
                 </div>
                 {job.progress && (
                   <div className="job-progress">{job.progress}</div>

@@ -41,7 +41,28 @@ class YouTubeService {
         expiry_date: credentials.expiry_date
       });
 
+      // Set up automatic token refresh
+      oauth2Client.on('tokens', (tokens) => {
+        console.log('🔄 OAuth tokens refreshed automatically');
+        if (tokens.refresh_token) {
+          console.log('📝 New refresh token received');
+        }
+        console.log('📝 New access token received');
+      });
+
       console.log('✅ OAuth2 client configured');
+      
+      // Try to refresh token if it might be expired
+      try {
+        console.log('🔄 Checking token validity and refreshing if needed...');
+        const tokenInfo = await oauth2Client.getAccessToken();
+        if (tokenInfo.token) {
+          console.log('✅ Token is valid or has been refreshed');
+        }
+      } catch (tokenError) {
+        console.error('⚠️ Token refresh failed:', tokenError.message);
+        throw new Error('YouTube OAuth tokens are invalid or expired. Please obtain new tokens from OAuth 2.0 Playground.');
+      }
 
       // Download video file first
       console.log('📥 Downloading video from Creatomate...');

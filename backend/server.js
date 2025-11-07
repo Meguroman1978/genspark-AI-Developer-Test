@@ -107,6 +107,11 @@ function initializeDatabase() {
           console.error('Error adding language column:', err.message);
         }
       });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN video_url TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding video_url column:', err.message);
+        }
+      });
     }
   });
 }
