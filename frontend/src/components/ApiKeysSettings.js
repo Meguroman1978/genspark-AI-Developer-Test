@@ -253,50 +253,119 @@ function ApiKeysSettings({ onSaved }) {
           
           {showYouTubeHelp && (
             <div className="help-box">
-              <h4>YouTube API 認証情報の取得方法:</h4>
+              <h4>🎯 YouTube API 認証情報の取得方法（完全ガイド）</h4>
+              
+              <div className="warning-banner">
+                ⚠️ <strong>最重要ステップ：</strong> Google Cloud ConsoleでPlaygroundのredirect_uriを登録しないと<br/>
+                <code>invalid_client</code>エラーが発生します！
+              </div>
+
+              <h5>【ステップ1】Google Cloud Consoleの設定</h5>
               <ol>
-                <li>Google Cloud Console で新しいプロジェクトを作成</li>
-                <li>YouTube Data API v3 を有効化</li>
-                <li>OAuth 2.0 クライアントIDを作成（デスクトップアプリ型を推奨）</li>
-                <li>OAuth 2.0 Playgroundでトークンを取得:
-                  <ul>
-                    <li>設定アイコンで "Use your own OAuth credentials" を有効化</li>
-                    <li>client_idとclient_secretを入力</li>
-                    <li>YouTube Data API v3 のスコープを選択して認証</li>
-                    <li>トークンを取得</li>
-                  </ul>
+                <li>
+                  <strong>プロジェクト作成</strong><br/>
+                  <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">
+                    Google Cloud Console
+                  </a> で新しいプロジェクトを作成
                 </li>
-                <li>以下のJSON形式で入力（<strong>redirect_uriを必ず含める</strong>）:
-                  <pre>{`{
-  "client_id": "your-client-id",
-  "client_secret": "your-client-secret",
-  "access_token": "your-access-token",
-  "refresh_token": "your-refresh-token",
-  "redirect_uri": "https://developers.google.com/oauthplayground"
-}`}</pre>
-                  <p className="note-text">
-                    ⚠️ <strong>重要:</strong> OAuth 2.0 Playgroundで取得した場合、<br/>
-                    redirect_uri に <code>"https://developers.google.com/oauthplayground"</code> を必ず設定してください。<br/>
-                    これを設定しないと <code>invalid_client</code> エラーが発生します。
-                  </p>
+                <li>
+                  <strong>API有効化</strong><br/>
+                  「APIとサービス」→「ライブラリ」→「YouTube Data API v3」を有効化
+                </li>
+                <li>
+                  <strong>OAuth同意画面</strong><br/>
+                  「APIとサービス」→「OAuth同意画面」→ 設定を完了<br/>
+                  ※ テストユーザーに自分のGoogleアカウントを追加
+                </li>
+                <li>
+                  <strong>OAuthクライアントID作成</strong><br/>
+                  「APIとサービス」→「認証情報」→「認証情報を作成」→「OAuthクライアントID」<br/>
+                  アプリケーションの種類: <strong>ウェブアプリケーション</strong>
+                </li>
+                <li>
+                  <strong>🚨 重要：redirect_uriを登録</strong><br/>
+                  「承認済みのリダイレクトURI」に以下を追加：<br/>
+                  <code className="uri-code">https://developers.google.com/oauthplayground</code><br/>
+                  <span className="warning-text">※ これを忘れると invalid_client エラーになります！</span>
+                </li>
+                <li>
+                  <strong>認証情報をコピー</strong><br/>
+                  client_id と client_secret を控える
                 </li>
               </ol>
-              <a 
-                href="https://developers.google.com/oauthplayground/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="get-key-link"
-              >
-                → OAuth 2.0 Playground
-              </a>
-              <a 
-                href="https://console.cloud.google.com/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="get-key-link"
-              >
-                → Google Cloud Console
-              </a>
+
+              <h5>【ステップ2】OAuth 2.0 Playgroundでトークン取得</h5>
+              <ol>
+                <li>
+                  <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noopener noreferrer">
+                    OAuth 2.0 Playground
+                  </a> を開く
+                </li>
+                <li>
+                  右上の⚙️（歯車アイコン）をクリック
+                </li>
+                <li>
+                  「Use your own OAuth credentials」にチェック
+                </li>
+                <li>
+                  client_id と client_secret を入力
+                </li>
+                <li>
+                  Step 1: 「YouTube Data API v3」を展開し、以下にチェック：<br/>
+                  <code>https://www.googleapis.com/auth/youtube.upload</code>
+                </li>
+                <li>
+                  「Authorize APIs」ボタンをクリック → Googleでログイン・許可
+                </li>
+                <li>
+                  Step 2: 「Exchange authorization code for tokens」をクリック
+                </li>
+                <li>
+                  Access token と Refresh token をコピー
+                </li>
+              </ol>
+
+              <h5>【ステップ3】アプリに設定</h5>
+              <p>以下のJSON形式で入力（<strong className="highlight">redirect_uriは必須</strong>）:</p>
+              <pre>{`{
+  "client_id": "あなたのclient_id.apps.googleusercontent.com",
+  "client_secret": "GOCSPX-あなたのclient_secret",
+  "access_token": "ya29.a0...(Playgroundで取得したもの)",
+  "refresh_token": "1//0g...(Playgroundで取得したもの)",
+  "redirect_uri": "https://developers.google.com/oauthplayground"
+}`}</pre>
+
+              <div className="checklist">
+                <h5>✅ チェックリスト</h5>
+                <ul>
+                  <li>□ YouTube Data API v3が有効化されている</li>
+                  <li>□ OAuth同意画面が設定済み</li>
+                  <li>□ テストユーザーに自分を追加済み</li>
+                  <li>□ <strong>redirect_uriがCloud Consoleに登録済み</strong></li>
+                  <li>□ Playgroundで正しいcredentialsを使用</li>
+                  <li>□ youtube.uploadスコープで認証済み</li>
+                  <li>□ redirect_uriフィールドを設定に含めた</li>
+                </ul>
+              </div>
+
+              <div className="help-links">
+                <a 
+                  href="https://developers.google.com/oauthplayground/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="get-key-link"
+                >
+                  → OAuth 2.0 Playground
+                </a>
+                <a 
+                  href="https://console.cloud.google.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="get-key-link"
+                >
+                  → Google Cloud Console
+                </a>
+              </div>
             </div>
           )}
           
