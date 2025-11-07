@@ -514,29 +514,60 @@ async function testYouTube(credentials) {
         '',
         '3. トークンを再取得してから再試行'
       ];
-    } else if (error.message.includes('unauthorized_client')) {
-      errorMessage = '❌ OAuthクライアントが認証されていません (unauthorized_client)';
-      errorDetails = 'client_idまたはclient_secretが無効、または設定に問題があります。';
+    } else if (error.message.includes('unauthorized_client') || error.message.includes('invalid_client')) {
+      const parsedCreds = error.message.includes('invalid_client') ? 
+        (() => { try { return JSON.parse(credentials); } catch { return {}; } })() : {};
+      
+      errorMessage = '❌ OAuthクライアント認証エラー (invalid_client / unauthorized_client)';
+      errorDetails = 'redirect_uriの不一致、またはclient_id/client_secretが無効です。';
       errorSolution = [
-        '🔧 修正手順:',
+        '🚨 最も多い原因: redirect_uri の不一致',
         '',
-        '1. Google Cloud Consoleでの確認:',
-        '   ✓ client_idとclient_secretが正しいか',
-        '   ✓ OAuthクライアントタイプを確認（デスクトップアプリ推奨）',
-        '   ✓ OAuth同意画面が設定されているか',
+        '❓ 問題:',
+        'OAuth 2.0 Playgroundでトークンを取得した際のredirect_uriと、',
+        'アプリで設定しているredirect_uriが一致していません。',
         '',
-        '2. 新しいOAuthクライアントIDを作成:',
-        '   a) Google Cloud Console → 認証情報',
-        '   b) 「認証情報を作成」→「OAuthクライアントID」',
-        '   c) アプリケーションの種類: デスクトップアプリ',
-        '   d) client_idとclient_secretをコピー',
+        '✅ 解決方法（推奨）:',
         '',
-        '3. OAuth 2.0 Playgroundで新しいトークンを取得:',
-        '   ✓ 新しいclient_idとclient_secretを使用',
-        '   ✓ YouTube Data API v3のスコープを選択',
-        '   ✓ 認証完了後、トークンを取得',
+        '【Option 1】redirect_uriを設定に追加する',
         '',
-        '4. すべての認証情報を設定に貼り付け'
+        '1. 現在の設定に "redirect_uri" フィールドを追加:',
+        '{',
+        '  "client_id": "' + (parsedCreds.client_id || 'あなたのclient_id') + '",',
+        '  "client_secret": "' + (parsedCreds.client_secret || 'あなたのclient_secret') + '",',
+        '  "access_token": "' + (parsedCreds.access_token ? parsedCreds.access_token.substring(0, 20) + '...' : 'ya29.a0...') + '",',
+        '  "refresh_token": "' + (parsedCreds.refresh_token ? parsedCreds.refresh_token.substring(0, 10) + '...' : '1//0g...') + '",',
+        '  "redirect_uri": "https://developers.google.com/oauthplayground"',
+        '}',
+        '',
+        '※ OAuth 2.0 Playgroundで取得した場合は、',
+        '  redirect_uri に "https://developers.google.com/oauthplayground" を設定',
+        '',
+        '【Option 2】デスクトップアプリ型で取得し直す',
+        '',
+        '1. Google Cloud Consoleで新しいOAuthクライアントを作成',
+        '   → アプリケーションの種類: 「デスクトップアプリ」を選択',
+        '',
+        '2. OAuth 2.0 Playgroundで設定:',
+        '   ⚙️ 右上の設定 → "Use your own OAuth credentials" にチェック',
+        '   → 新しいclient_idとclient_secretを入力',
+        '',
+        '3. YouTube Data API v3のスコープを選択して認証',
+        '   → https://www.googleapis.com/auth/youtube.upload',
+        '',
+        '4. トークンを取得し、以下の形式で設定:',
+        '{',
+        '  "client_id": "新しいclient_id",',
+        '  "client_secret": "新しいclient_secret",',
+        '  "access_token": "取得したaccess_token",',
+        '  "refresh_token": "取得したrefresh_token",',
+        '  "redirect_uri": "https://developers.google.com/oauthplayground"',
+        '}',
+        '',
+        '🔍 その他の確認事項:',
+        '• client_idとclient_secretが正しいか',
+        '• OAuth同意画面が設定されているか',
+        '• YouTube Data API v3が有効化されているか'
       ];
     } else if (error.message.includes('JSON')) {
       errorMessage = '❌ YouTube認証情報のJSON形式が不正です';

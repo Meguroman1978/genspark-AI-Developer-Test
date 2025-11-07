@@ -257,16 +257,38 @@ function ApiKeysSettings({ onSaved }) {
               <ol>
                 <li>Google Cloud Console で新しいプロジェクトを作成</li>
                 <li>YouTube Data API v3 を有効化</li>
-                <li>OAuth 2.0 クライアントIDを作成</li>
-                <li>認証後、以下のJSON形式で入力:
+                <li>OAuth 2.0 クライアントIDを作成（デスクトップアプリ型を推奨）</li>
+                <li>OAuth 2.0 Playgroundでトークンを取得:
+                  <ul>
+                    <li>設定アイコンで "Use your own OAuth credentials" を有効化</li>
+                    <li>client_idとclient_secretを入力</li>
+                    <li>YouTube Data API v3 のスコープを選択して認証</li>
+                    <li>トークンを取得</li>
+                  </ul>
+                </li>
+                <li>以下のJSON形式で入力（<strong>redirect_uriを必ず含める</strong>）:
                   <pre>{`{
   "client_id": "your-client-id",
   "client_secret": "your-client-secret",
   "access_token": "your-access-token",
-  "refresh_token": "your-refresh-token"
+  "refresh_token": "your-refresh-token",
+  "redirect_uri": "https://developers.google.com/oauthplayground"
 }`}</pre>
+                  <p className="note-text">
+                    ⚠️ <strong>重要:</strong> OAuth 2.0 Playgroundで取得した場合、<br/>
+                    redirect_uri に <code>"https://developers.google.com/oauthplayground"</code> を必ず設定してください。<br/>
+                    これを設定しないと <code>invalid_client</code> エラーが発生します。
+                  </p>
                 </li>
               </ol>
+              <a 
+                href="https://developers.google.com/oauthplayground/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="get-key-link"
+              >
+                → OAuth 2.0 Playground
+              </a>
               <a 
                 href="https://console.cloud.google.com/" 
                 target="_blank" 

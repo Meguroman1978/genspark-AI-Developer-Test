@@ -66,6 +66,11 @@ function initializeDatabase() {
           console.error('Error adding creatomate_public_token column:', err.message);
         }
       });
+      db.run(`ALTER TABLE api_keys ADD COLUMN youtube_redirect_uri TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding youtube_redirect_uri column:', err.message);
+        }
+      });
     }
   });
 
