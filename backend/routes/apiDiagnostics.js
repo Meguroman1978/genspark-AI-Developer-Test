@@ -349,7 +349,16 @@ async function testStabilityAI(apiKey) {
 
 async function testYouTube(credentials) {
   try {
+    console.log('🔍 YouTube API診断開始...');
     const creds = JSON.parse(credentials);
+    console.log('📋 認証情報:', {
+      has_client_id: !!creds.client_id,
+      has_client_secret: !!creds.client_secret,
+      has_access_token: !!creds.access_token,
+      has_refresh_token: !!creds.refresh_token,
+      has_redirect_uri: !!creds.redirect_uri,
+      redirect_uri: creds.redirect_uri || '未設定'
+    });
     
     // Check required fields
     if (!creds.client_id || !creds.client_secret) {
@@ -470,7 +479,13 @@ async function testYouTube(credentials) {
       ].join('\n')
     };
   } catch (error) {
-    console.error('YouTube API test error:', error);
+    console.error('❌ YouTube API test error:', error.message);
+    console.error('📊 Error details:', {
+      code: error.code,
+      message: error.message,
+      response_status: error.response?.status,
+      response_data: error.response?.data
+    });
     
     // Detailed error handling
     let errorMessage = '';
