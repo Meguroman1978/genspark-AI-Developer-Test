@@ -45,12 +45,20 @@ class YouTubeService {
       oauth2Client.on('tokens', (tokens) => {
         console.log('🔄 OAuth tokens refreshed automatically');
         if (tokens.refresh_token) {
-          console.log('📝 New refresh token received');
+          console.log('📝 New refresh token received:', tokens.refresh_token.substring(0, 20) + '...');
         }
-        console.log('📝 New access token received');
+        if (tokens.access_token) {
+          console.log('📝 New access token received:', tokens.access_token.substring(0, 20) + '...');
+        }
       });
 
       console.log('✅ OAuth2 client configured');
+      console.log('📋 Current credentials state:', {
+        has_access_token: !!credentials.access_token,
+        has_refresh_token: !!credentials.refresh_token,
+        access_token_preview: credentials.access_token ? credentials.access_token.substring(0, 20) + '...' : 'none',
+        refresh_token_preview: credentials.refresh_token ? credentials.refresh_token.substring(0, 20) + '...' : 'none'
+      });
       
       // Try to refresh token if it might be expired
       try {
@@ -58,9 +66,24 @@ class YouTubeService {
         const tokenInfo = await oauth2Client.getAccessToken();
         if (tokenInfo.token) {
           console.log('✅ Token is valid or has been refreshed');
+          console.log('📝 Active token preview:', tokenInfo.token.substring(0, 20) + '...');
+          
+          // Update credentials with the refreshed token
+          const currentCreds = oauth2Client.credentials;
+          console.log('📋 OAuth2 client credentials after refresh:', {
+            has_access_token: !!currentCreds.access_token,
+            has_refresh_token: !!currentCreds.refresh_token,
+            token_type: currentCreds.token_type,
+            expiry_date: currentCreds.expiry_date ? new Date(currentCreds.expiry_date).toISOString() : 'none'
+          });
         }
       } catch (tokenError) {
         console.error('⚠️ Token refresh failed:', tokenError.message);
+        console.error('⚠️ Token error details:', {
+          code: tokenError.code,
+          status: tokenError.status,
+          message: tokenError.message
+        });
         throw new Error('YouTube OAuth tokens are invalid or expired. Please obtain new tokens from OAuth 2.0 Playground.');
       }
 
@@ -80,6 +103,17 @@ class YouTubeService {
       console.log('📤 Starting resumable upload to YouTube...');
       console.log(`   Title: ${title}`);
       console.log(`   Privacy: ${privacyStatus || 'private'}`);
+      console.log(`   Video file size: ${videoStats.size} bytes`);
+      console.log(`   Video path: ${videoPath}`);
+
+      // Double-check auth before upload
+      console.log('🔐 Verifying authentication before upload...');
+      const finalCreds = oauth2Client.credentials;
+      console.log('📋 Final credentials check:', {
+        has_access_token: !!finalCreds.access_token,
+        has_refresh_token: !!finalCreds.refresh_token,
+        token_type: finalCreds.token_type
+      });
 
       const response = await youtube.videos.insert({
         part: ['snippet', 'status'],
@@ -123,13 +157,27 @@ class YouTubeService {
       return youtubeUrl;
     } catch (error) {
       console.error('❌ YouTube upload error:', error.message);
+      console.error('❌ Error type:', error.constructor.name);
+      console.error('❌ Full error object keys:', Object.keys(error));
       console.error('Error details:', {
         message: error.message,
         code: error.code,
         status: error.response?.status,
         statusText: error.response?.statusText,
-        data: error.response?.data
+        data: error.response?.data,
+        errors: error.errors,
+        stack: error.stack?.split('\n').slice(0, 3).join('\n')
       });
+      
+      // Check if it's a googleapis error with more details
+      if (error.response?.data) {
+        console.error('❌ API response data:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      // Check error from googleapis
+      if (error.errors && Array.isArray(error.errors)) {
+        console.error('❌ Detailed errors:', error.errors);
+      }
       
       // Enhanced error messages
       if (error.code === 401 || error.message.includes('invalid_grant')) {

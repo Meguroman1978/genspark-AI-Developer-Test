@@ -404,6 +404,138 @@ function VideoGenerator({ apiKeysConfigured }) {
               </div>
             )}
           </div>
+
+          {/* Debug Artifacts Section */}
+          {(jobStatus.status === 'completed' || jobStatus.status === 'failed') && (
+            <div className="artifacts-section">
+              <h4 className="artifacts-title">🔍 デバッグ情報（生成された中間ファイル）</h4>
+              <p className="artifacts-description">
+                動画生成過程で作成された各種ファイルを確認できます。動画内容が意図と異なる場合、これらを確認してください。
+              </p>
+
+              {/* Script Text */}
+              {jobStatus.script_text && (
+                <details className="artifact-details">
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">📝</span>
+                    <span className="artifact-name">GPT-4生成スクリプト（ナレーション原稿）</span>
+                  </summary>
+                  <div className="artifact-content">
+                    <pre className="script-text">{jobStatus.script_text}</pre>
+                  </div>
+                </details>
+              )}
+
+              {/* Audio URL */}
+              {jobStatus.audio_url && (
+                <details className="artifact-details">
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">🎙️</span>
+                    <span className="artifact-name">ElevenLabs生成音声（ナレーション）</span>
+                  </summary>
+                  <div className="artifact-content">
+                    <audio controls className="audio-player">
+                      <source src={jobStatus.audio_url} type="audio/mpeg" />
+                      お使いのブラウザは音声再生に対応していません。
+                    </audio>
+                    <a 
+                      href={jobStatus.audio_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="artifact-link"
+                    >
+                      🔗 音声ファイルを開く
+                    </a>
+                  </div>
+                </details>
+              )}
+
+              {/* DALL-E Images */}
+              {jobStatus.image_urls && jobStatus.image_urls.length > 0 && (
+                <details className="artifact-details">
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">🎨</span>
+                    <span className="artifact-name">DALL-E 3生成画像（{jobStatus.image_urls.length}枚）</span>
+                  </summary>
+                  <div className="artifact-content">
+                    <div className="image-gallery">
+                      {jobStatus.image_urls.map((url, index) => (
+                        <div key={index} className="image-item">
+                          <img src={url} alt={`Generated image ${index + 1}`} className="artifact-image" />
+                          <a 
+                            href={url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="artifact-link"
+                          >
+                            🔗 画像 {index + 1} を開く
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+              )}
+
+              {/* Pexels Videos */}
+              {jobStatus.pexels_urls && jobStatus.pexels_urls.length > 0 && (
+                <details className="artifact-details">
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">📹</span>
+                    <span className="artifact-name">Pexels動画素材（{jobStatus.pexels_urls.length}個）</span>
+                  </summary>
+                  <div className="artifact-content">
+                    <div className="video-gallery">
+                      {jobStatus.pexels_urls.map((url, index) => (
+                        <div key={index} className="video-item">
+                          <video controls className="artifact-video">
+                            <source src={url} type="video/mp4" />
+                            お使いのブラウザは動画再生に対応していません。
+                          </video>
+                          <a 
+                            href={url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="artifact-link"
+                          >
+                            🔗 素材 {index + 1} を開く
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+              )}
+
+              {/* Final Video */}
+              {jobStatus.video_url && (
+                <details className="artifact-details" open>
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">🎬</span>
+                    <span className="artifact-name">Creatomate最終動画</span>
+                  </summary>
+                  <div className="artifact-content">
+                    <video controls className="final-video">
+                      <source src={jobStatus.video_url} type="video/mp4" />
+                      お使いのブラウザは動画再生に対応していません。
+                    </video>
+                    <a 
+                      href={jobStatus.video_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="artifact-link"
+                    >
+                      🔗 動画ファイルを開く
+                    </a>
+                  </div>
+                </details>
+              )}
+
+              {(!jobStatus.script_text && !jobStatus.audio_url && !jobStatus.image_urls && !jobStatus.pexels_urls && !jobStatus.video_url) && (
+                <p className="no-artifacts">中間ファイルは保存されていません（この機能は最近追加されました）</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

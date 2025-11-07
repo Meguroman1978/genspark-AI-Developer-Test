@@ -89,7 +89,7 @@ router.get('/status/:jobId', (req, res) => {
   const { jobId } = req.params;
 
   db.get(
-    'SELECT id, theme, duration, status, progress, youtube_url, error_message, created_at, updated_at FROM video_jobs WHERE id = ?',
+    'SELECT id, theme, duration, status, progress, youtube_url, video_url, script_text, audio_url, image_urls, pexels_urls, error_message, created_at, updated_at FROM video_jobs WHERE id = ?',
     [jobId],
     (err, job) => {
       if (err) {
@@ -99,6 +99,25 @@ router.get('/status/:jobId', (req, res) => {
 
       if (!job) {
         return res.status(404).json({ error: 'Job not found' });
+      }
+
+      // Parse JSON fields
+      if (job.image_urls) {
+        try {
+          job.image_urls = JSON.parse(job.image_urls);
+        } catch (e) {
+          console.error('Error parsing image_urls:', e);
+          job.image_urls = [];
+        }
+      }
+      
+      if (job.pexels_urls) {
+        try {
+          job.pexels_urls = JSON.parse(job.pexels_urls);
+        } catch (e) {
+          console.error('Error parsing pexels_urls:', e);
+          job.pexels_urls = [];
+        }
       }
 
       res.json(job);
@@ -112,7 +131,7 @@ router.get('/jobs', (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.all(
-    'SELECT id, theme, duration, status, progress, youtube_url, video_url, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 3',
+    'SELECT id, theme, duration, status, progress, youtube_url, video_url, script_text, audio_url, image_urls, pexels_urls, created_at FROM video_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 3',
     [userId],
     (err, jobs) => {
       if (err) {

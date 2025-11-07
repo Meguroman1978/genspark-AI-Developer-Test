@@ -112,6 +112,26 @@ function initializeDatabase() {
           console.error('Error adding video_url column:', err.message);
         }
       });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN script_text TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding script_text column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN audio_url TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding audio_url column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN image_urls TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding image_urls column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN pexels_urls TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding pexels_urls column:', err.message);
+        }
+      });
     }
   });
 }
