@@ -8,7 +8,7 @@ class CreatomateService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language } = config;
+    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language, thumbnailBackground } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
 
     try {
@@ -40,8 +40,8 @@ class CreatomateService {
       // Build custom composition WITHOUT template
       // This ensures our assets are actually used
       // Now includes title screen and volume boost
-      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language);
-      console.log(`${logPrefix} Custom composition prepared (with title screen)`);
+      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language, thumbnailBackground);
+      console.log(`${logPrefix} Custom composition prepared (with title screen: ${thumbnailBackground})`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
       // Create render using v2 API with 'elements' parameter (not template)
@@ -52,7 +52,8 @@ class CreatomateService {
         width: 1920,
         height: 1080,
         duration: duration,
-        frame_rate: 30
+        frame_rate: 30,
+        render_scale: 1.0  // Force full resolution (1.0 = 100%, do not downscale)
       };
       
       console.log(`${logPrefix} Sending render request...`);
@@ -87,7 +88,7 @@ class CreatomateService {
     }
   }
 
-  buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language) {
+  buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language, thumbnailBackground) {
     // Build elements array for Creatomate API
     // API requires 'elements' parameter (not composition/children)
     // Error: "The parameter 'template_id' or 'elements' should be provided"
@@ -96,21 +97,23 @@ class CreatomateService {
     const titleDuration = 2; // Title screen duration
     const contentDuration = duration - titleDuration; // Remaining time for content
     
-    // Add title screen (first 2 seconds)
-    // Using the provided cherry blossom background image
-    const titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;
-    
-    elements.push({
-      type: 'image',
-      source: titleBgUrl,
-      x: '0%',
-      y: '0%',
-      width: '100%',
-      height: '100%',
-      time: 0,
-      duration: titleDuration,
-      fit: 'cover'
-    });
+    // Add title screen (first 2 seconds) if thumbnailBackground is not 'none'
+    if (thumbnailBackground && thumbnailBackground !== 'none') {
+      // Using the selected background image
+      const titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;  // Currently only cherry_blossom
+      
+      elements.push({
+        type: 'image',
+        source: titleBgUrl,
+        x: '0%',
+        y: '0%',
+        width: '100%',
+        height: '100%',
+        time: 0,
+        duration: titleDuration,
+        fit: 'cover'
+      });
+    }
     
     // Add title text (Japanese theme)
     elements.push({
@@ -184,7 +187,7 @@ class CreatomateService {
       source: audioUrl,
       time: titleDuration,  // Start audio after title screen
       duration: contentDuration,  // Duration matches content (not including title)
-      volume: 2.0  // Increased volume from 1.0 to 2.0 for louder audio
+      volume: 6.0  // Increased volume to 6.0 (3x louder than previous 2.0)
     });
     
     // Remove this section - title is now shown on title screen only

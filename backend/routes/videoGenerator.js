@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, channelName, privacyStatus, contentType, language } = req.body;
+  const { theme, duration, channelName, privacyStatus, contentType, language, thumbnailBackground } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -61,6 +61,7 @@ router.post('/generate', async (req, res) => {
             privacyStatus: privacyStatus || 'private',
             contentType: contentType || null,
             language: language || 'ja',
+            thumbnailBackground: thumbnailBackground || 'cherry_blossom',  // サムネイル背景
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,

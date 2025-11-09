@@ -8,7 +8,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     channelName: '',
     privacyStatus: 'private',
     contentType: '',
-    language: 'ja'
+    language: 'ja',
+    thumbnailBackground: 'cherry_blossom'  // サムネイル背景の選択
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -215,6 +216,25 @@ function VideoGenerator({ apiKeysConfigured }) {
             </select>
           </div>
         </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="thumbnailBackground">
+              タイトル背景画像
+              <span className="help-text">冒頭2秒のタイトルスクリーンの背景</span>
+            </label>
+            <select
+              id="thumbnailBackground"
+              name="thumbnailBackground"
+              value={formData.thumbnailBackground}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="cherry_blossom">🌸 桜の窓辺（デフォルト）</option>
+              <option value="none">なし（最初の画像を使用）</option>
+            </select>
+          </div>
 
         <div className="form-row">
           <div className="form-group">

@@ -9,7 +9,7 @@ const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, channelName, privacyStatus, contentType, language, keys, db } = config;
+    const { jobId, theme, duration, channelName, privacyStatus, contentType, language, thumbnailBackground, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -91,6 +91,7 @@ class VideoGeneratorService {
           stabilityAiKey: keys.stabilityAiKey,
           publicUrl,  // Pass public URL for title background
           language,   // Pass language for title screen
+          thumbnailBackground,  // サムネイル背景の選択
           jobId
         });
       } else {
