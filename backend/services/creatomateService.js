@@ -43,13 +43,19 @@ class CreatomateService {
       console.log(`${logPrefix} Custom composition prepared`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
-      // Create render using v2 API endpoint with source (composition) instead of template
+      // Create render using v2 API endpoint with correct structure
+      // Reference: https://creatomate.com/docs/api/rest-api/renders
+      const renderRequest = {
+        composition: composition.composition,
+        outputs: composition.outputs
+      };
+      
       console.log(`${logPrefix} Sending render request...`);
+      console.log(`${logPrefix} Request structure:`, JSON.stringify(renderRequest, null, 2));
+      
       const response = await axios.post(
         `https://api.creatomate.com/v2/renders`,
-        {
-          source: composition
-        },
+        renderRequest,
         {
           headers: {
             'Authorization': `Bearer ${creatomateKey}`,
@@ -77,10 +83,14 @@ class CreatomateService {
   }
 
   buildCustomComposition(audioUrl, visualAssets, duration, theme) {
-    // Build a custom composition from scratch using correct Creatomate JSON format
-    // Reference: https://creatomate.com/docs/json/introduction
+    // Build a custom composition using CORRECT Creatomate API format
+    // Reference: https://creatomate.com/docs/api/rest-api/renders
+    // Key differences:
+    // - Use 'children' not 'elements'
+    // - Separate 'composition' and 'outputs' objects
+    // - Use 'frameRate' not 'frame_rate'
     
-    const elements = [];
+    const children = [];
     
     // Calculate duration per image (divide total duration by number of images)
     const imageCount = visualAssets.filter(a => a.type === 'image').length;
@@ -88,57 +98,66 @@ class CreatomateService {
     
     console.log(`Building composition: ${imageCount} images, ${durationPerImage}s per image`);
     
-    // Add each image as a sequential element
+    // Add each image as a sequential child element
     let currentTime = 0;
     visualAssets.forEach((asset, index) => {
       if (asset.type === 'image') {
-        elements.push({
+        children.push({
           type: 'image',
-          src: asset.url,  // Correct field name: 'src' not 'source'
-          x: 0,
-          y: 0,
-          width: 1920,
-          height: 1080,
-          start: currentTime,  // Correct field name: 'start' not 'time'
+          source: asset.url,  // For 'children' format, use 'source'
+          x: '0%',
+          y: '0%',
+          width: '100%',
+          height: '100%',
+          time: currentTime,  // In 'children' format, use 'time'
           duration: durationPerImage,
-          scale_mode: 'cover'  // Correct field name: 'scale_mode' not 'fit'
+          fit: 'cover'  // In 'children' format, use 'fit'
         });
         currentTime += durationPerImage;
       }
     });
     
     // Add audio track (spans entire video)
-    elements.push({
+    children.push({
       type: 'audio',
-      src: audioUrl,  // Correct field name: 'src' not 'source'
-      start: 0,       // Correct field name: 'start' not 'time'
+      source: audioUrl,  // In 'children' format, use 'source'
+      time: 0,           // In 'children' format, use 'time'
       duration: duration,
       volume: 1.0
     });
     
     // Add theme text overlay at the start
-    elements.push({
+    children.push({
       type: 'text',
       text: theme,
-      font_family: 'Arial',  // Use safe font
-      font_size: 64,
-      fill_color: '#ffffff',
-      stroke_color: '#000000',
-      stroke_width: 3,
-      x: 960,      // Center x position
-      y: 100,      // Near top
-      align: 'center',
-      start: 0,    // Correct field name: 'start' not 'time'
+      fontFamily: 'Arial',     // Use camelCase for 'children' format
+      fontSize: 64,            // Use camelCase
+      fillColor: '#ffffff',    // Use camelCase
+      strokeColor: '#000000',  // Use camelCase
+      strokeWidth: 3,          // Use camelCase
+      x: '50%',                // Use percentage for center
+      y: '10%',                // Use percentage
+      xAnchor: '50%',          // Center alignment
+      yAnchor: '50%',
+      time: 0,                 // In 'children' format, use 'time'
       duration: 3
     });
     
+    // Return in correct Creatomate API format
     return {
-      output_format: 'mp4',
-      width: 1920,
-      height: 1080,
-      duration: duration,
-      frame_rate: 30,
-      elements: elements
+      composition: {
+        width: 1920,
+        height: 1080,
+        duration: duration,
+        frameRate: 30,  // Use camelCase
+        children: children
+      },
+      outputs: [
+        {
+          format: 'mp4',
+          quality: 'high'
+        }
+      ]
     };
   }
 
