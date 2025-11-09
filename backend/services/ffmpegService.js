@@ -16,7 +16,7 @@ class FFmpegService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl, narrationText } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[FFmpeg]';
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
@@ -122,6 +122,7 @@ class FFmpegService {
         totalDuration,
         theme: originalTheme || theme,
         bgConfig,
+        narrationText,
         logPrefix
       });
 
@@ -146,7 +147,7 @@ class FFmpegService {
   }
 
   async generateVideoWithFFmpeg(config) {
-    const { imagePaths, audioPath, bgmPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, bgConfig, logPrefix } = config;
+    const { imagePaths, audioPath, bgmPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, bgConfig, narrationText, logPrefix } = config;
 
     // Create filter complex for FFmpeg
     const imageCount = imagePaths.length;
@@ -193,11 +194,33 @@ class FFmpegService {
       videoStartIndex = 1;
     }
 
-    // Add images
+    // Split narration text into chunks for subtitle display
+    const narrationChunks = this.splitNarrationIntoChunks(narrationText, imageCount);
+    
+    // Font settings for narration subtitles
+    const subtitleFontsize = height > 1080 ? 32 : 24;
+    const japaneseFont = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
+    const subtitleFillColor = '0xffffff'; // White text
+    const subtitleStrokeColor = '0x000000'; // Black stroke
+    const subtitleStrokeWidth = 3;
+    
+    // Add images with subtitle overlays
     for (let i = 0; i < imagePaths.length; i++) {
       const inputIndex = videoStartIndex + i;
       inputs.push(`-loop 1 -t ${durationPerImage} -i "${imagePaths[i]}"`);
-      filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[img${i}];`;
+      
+      // Get narration chunk for this image
+      const chunkText = narrationChunks[i] || '';
+      const escapedChunk = chunkText.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:').replace(/\n/g, ' ');
+      
+      // Add image with subtitle overlay at bottom
+      if (chunkText) {
+        filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
+        filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h-${subtitleFontsize*3}:box=1:boxcolor=0x000000@0.5:boxborderw=10,`;
+        filterComplex += `setsar=1,fps=30[img${i}];`;
+      } else {
+        filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[img${i}];`;
+      }
     }
 
     // Concatenate all video segments
@@ -303,6 +326,43 @@ class FFmpegService {
         }
       }
     });
+  }
+
+  splitNarrationIntoChunks(narrationText, chunkCount) {
+    if (!narrationText || chunkCount === 0) {
+      return [];
+    }
+
+    // Split by sentences (period, question mark, exclamation mark)
+    const sentences = narrationText.split(/([。！？\.!?])/g).filter(s => s.trim());
+    
+    // Recombine sentence parts
+    const fullSentences = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      const sentence = sentences[i] + (sentences[i + 1] || '');
+      if (sentence.trim()) {
+        fullSentences.push(sentence.trim());
+      }
+    }
+
+    // Distribute sentences across chunks
+    const chunks = [];
+    const sentencesPerChunk = Math.ceil(fullSentences.length / chunkCount);
+    
+    for (let i = 0; i < chunkCount; i++) {
+      const start = i * sentencesPerChunk;
+      const end = Math.min(start + sentencesPerChunk, fullSentences.length);
+      const chunkText = fullSentences.slice(start, end).join(' ');
+      
+      // Limit to 100 characters for readability
+      if (chunkText.length > 100) {
+        chunks.push(chunkText.substring(0, 97) + '...');
+      } else {
+        chunks.push(chunkText);
+      }
+    }
+
+    return chunks;
   }
 }
 

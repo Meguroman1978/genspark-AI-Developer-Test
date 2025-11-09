@@ -97,6 +97,7 @@ class VideoGeneratorService {
         thumbnailBackground,
         videoFormat,
         bgmUrl,
+        narrationText: script.narration,  // Add narration text for subtitles
         jobId
       };
 
@@ -149,7 +150,8 @@ class VideoGeneratorService {
             title: finalTitle,
             description: finalDescription,
             privacyStatus,
-            youtubeCredentials: keys.youtubeCredentials
+            youtubeCredentials: keys.youtubeCredentials,
+            language: language || 'ja'  // Pass language for YouTube metadata
           });
           console.log(`[Job ${jobId}] Uploaded to YouTube: ${youtubeUrl}`);
           completionMessage = 'Video generated and uploaded to YouTube successfully!';

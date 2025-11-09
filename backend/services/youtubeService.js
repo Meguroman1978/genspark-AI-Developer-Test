@@ -5,7 +5,7 @@ const path = require('path');
 
 class YouTubeService {
   async uploadVideo(config) {
-    const { videoUrl, title, description, privacyStatus, youtubeCredentials } = config;
+    const { videoUrl, title, description, privacyStatus, youtubeCredentials, language } = config;
 
     try {
       console.log('🎬 Starting YouTube upload process...');
@@ -123,8 +123,8 @@ class YouTubeService {
             description: description,
             categoryId: '22', // People & Blogs
             tags: ['AI Generated', 'Automated Video', 'AI'],
-            defaultLanguage: 'ja',
-            defaultAudioLanguage: 'ja'
+            defaultLanguage: language || 'ja',
+            defaultAudioLanguage: language || 'ja'
           },
           status: {
             privacyStatus: privacyStatus || 'private',

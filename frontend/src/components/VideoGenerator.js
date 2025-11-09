@@ -238,17 +238,8 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="bg1_lantern_street">🏮 提灯の路地</option>
-              <option value="bg2_castle_sakura">🏯 桜と城</option>
-              <option value="bg3_winter_village">❄️ 雪の集落</option>
-              <option value="bg4_festival_fireworks">🎆 祭りの花火</option>
-              <option value="bg5_rice_field_fuji">🗻 田園と富士山</option>
-              <option value="bg6_sunset_pagoda">🌅 夕焼けの塔</option>
-              <option value="bg7_cherry_temple">🌸 桜の寺院</option>
-              <option value="bg8_sakura_path">🌸 桜並木</option>
-              <option value="bg9_bamboo_forest">🎋 竹林の道</option>
-              <option value="bg10_shibuya_rain">🌧️ 雨の渋谷</option>
-              <option value="cherry_blossom">🌸 桜の窓辺（旧）</option>
+              <option value="fuji_pagoda_day">🗻 富士山と五重の塔（昼）</option>
+              <option value="fuji_pagoda_sunset">🌅 富士山と五重の塔（夕日）</option>
               <option value="none">なし（最初の画像を使用）</option>
             </select>
           </div>
