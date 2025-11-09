@@ -61,27 +61,31 @@ class CreatomateService {
       
       let width, height;
       if (videoFormat === 'shorts') {
-        // YouTube Shorts: 9:16 vertical format (1080x1920)
+        // YouTube Shorts: 9:16 vertical format (1080x1920) - Full HD
         width = 1080;
         height = 1920;
         console.log(`${logPrefix} Using YouTube Shorts format: ${width}x${height} (9:16)`);
       } else {
-        // Normal: 16:9 horizontal format (1920x1080)
+        // Normal: 16:9 horizontal format (1920x1080) - Full HD
         width = 1920;
         height = 1080;
         console.log(`${logPrefix} Using normal format: ${width}x${height} (16:9)`);
       }
       
+      // Creatomate render request with EXPLICIT resolution settings
+      // Multiple approaches to force Full HD resolution:
+      // 1. Direct width/height specification (primary method)
+      // 2. Resolution preset as fallback (1080p)
+      // 3. Explicit render_scale set to maximum (1.0)
       const renderRequest = {
         elements: composition.elements,
         output_format: 'mp4',
-        width: width,
-        height: height,
+        width: width,           // Primary: Direct pixel specification for Full HD
+        height: height,         // Primary: Direct pixel specification for Full HD
         duration: duration,
         frame_rate: 30,
-        render_scale: 1.0  // CRITICAL: Force full resolution (1.0 = 100%, no downscaling)
-        // Note: render_scale is ignored if max_width or max_height is set
-        // Removed max_width/max_height to allow render_scale to take effect
+        resolution: '1080p',    // Fallback: Preset resolution (Full HD)
+        render_scale: 1.0       // Fallback: Maximum render scale (100%, no downscaling)
       };
       
       console.log(`${logPrefix} Sending render request...`);
