@@ -77,7 +77,11 @@ class VideoGeneratorService {
       }
       
       // Get public URL for title background image
-      const publicUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+      // CRITICAL: Use sandbox public URL for Creatomate to access files
+      // Creatomate CANNOT access localhost URLs
+      const publicUrl = 'https://5000-iukw9njrdih7jga4yuix6-02b9cc79.sandbox.novita.ai';
+      
+      console.log(`[Job ${jobId}] Using public URL: ${publicUrl}`);
       
       let videoUrl;
       if (keys.creatomateKey) {
@@ -243,7 +247,7 @@ Return your response in the following JSON format:
           const openai = new OpenAI({ apiKey: openaiKey });
           const imageResponse = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: `Vibrant, poppy, and artistic illustration with bold colors and creative composition. Style: modern pop art with eye-catching aesthetics. Subject: ${scene.description}. Important: NO TEXT, NO LETTERS, NO WORDS in the image.`,
+            prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures.`,
             n: 1,
             size: '1792x1024'
           });

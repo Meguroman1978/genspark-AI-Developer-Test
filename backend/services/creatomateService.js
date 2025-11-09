@@ -144,6 +144,14 @@ class CreatomateService {
       }
       
       if (titleBgUrl) {
+        // Ensure publicUrl is not localhost for Creatomate
+        // Creatomate cannot access localhost URLs
+        if (titleBgUrl.includes('localhost')) {
+          console.log(`Warning: Background URL contains localhost, attempting to fix...`);
+          titleBgUrl = titleBgUrl.replace('http://localhost:5000', publicUrl);
+          console.log(`Fixed background URL: ${titleBgUrl}`);
+        }
+        
         elements.push({
           type: 'image',
           source: titleBgUrl,
