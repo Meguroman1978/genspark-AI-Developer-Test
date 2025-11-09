@@ -241,7 +241,7 @@ Return your response in the following JSON format:
           const openai = new OpenAI({ apiKey: openaiKey });
           const imageResponse = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: `High-quality, cinematic image: ${scene.description}`,
+            prompt: `Vibrant, poppy, and artistic illustration with bold colors and creative composition. Style: modern pop art with eye-catching aesthetics. Subject: ${scene.description}. Important: NO TEXT, NO LETTERS, NO WORDS in the image.`,
             n: 1,
             size: '1792x1024'
           });

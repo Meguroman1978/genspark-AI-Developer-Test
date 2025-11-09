@@ -168,7 +168,180 @@ const kanjiToReading = {
   '今': 'ima',
   '明日': 'ashita',
   '昨日': 'kinou',
-  '今日': 'kyou'
+  '今日': 'kyou',
+  // Animals
+  '犬': 'inu',
+  '猫': 'neko',
+  '鳥': 'tori',
+  '魚': 'sakana',
+  '馬': 'uma',
+  '牛': 'ushi',
+  '豚': 'buta',
+  '猿': 'saru',
+  '虎': 'tora',
+  '狐': 'kitsune',
+  '鬼': 'oni',
+  '龍': 'ryuu',
+  // Verbs and actions
+  '歩': 'aru',
+  '走': 'hashi',
+  '飛': 'to',
+  '泳': 'oyo',
+  '食': 'ta',
+  '飲': 'no',
+  '見': 'mi',
+  '聞': 'ki',
+  '言': 'i',
+  '話': 'hanashi',
+  '書': 'ka',
+  '読': 'yo',
+  '歌': 'uta',
+  '踊': 'odo',
+  '笑': 'wara',
+  '泣': 'na',
+  '怒': 'oko',
+  '喜': 'yoroko',
+  '悲': 'kana',
+  '驚': 'odoro',
+  '眠': 'nemu',
+  '起': 'o',
+  '座': 'suwa',
+  '立': 'ta',
+  '待': 'ma',
+  '来': 'ku',
+  '行': 'i',
+  '帰': 'kae',
+  '入': 'hai',
+  '出': 'de',
+  '上': 'ue',
+  '下': 'shita',
+  '前': 'mae',
+  '後': 'ato',
+  '中': 'naka',
+  '外': 'soto',
+  '左': 'hidari',
+  '右': 'migi',
+  '東': 'higashi',
+  '西': 'nishi',
+  '南': 'minami',
+  '北': 'kita',
+  // Objects
+  '棒': 'bou',
+  '石': 'ishi',
+  '岩': 'iwa',
+  '玉': 'tama',
+  '珠': 'tama',
+  '宝': 'takara',
+  '金': 'kin',
+  '銀': 'gin',
+  '銅': 'dou',
+  '鉄': 'tetsu',
+  '鋼': 'hagane',
+  '刀': 'katana',
+  '剣': 'ken',
+  '弓': 'yumi',
+  '矢': 'ya',
+  '槍': 'yari',
+  '盾': 'tate',
+  '鎧': 'yoroi',
+  '兜': 'kabuto',
+  '旗': 'hata',
+  '門': 'mon',
+  '壁': 'kabe',
+  '屋根': 'yane',
+  '窓': 'mado',
+  '扉': 'tobira',
+  '鍵': 'kagi',
+  '箱': 'hako',
+  '袋': 'fukuro',
+  '傘': 'kasa',
+  '帽子': 'boushi',
+  '靴': 'kutsu',
+  '服': 'fuku',
+  '着物': 'kimono',
+  '帯': 'obi',
+  '袖': 'sode',
+  '襟': 'eri',
+  '釦': 'botan',
+  '糸': 'ito',
+  '針': 'hari',
+  '布': 'nuno',
+  '紙': 'kami',
+  '筆': 'fude',
+  '墨': 'sumi',
+  '硯': 'suzuri',
+  '印': 'in',
+  '鏡': 'kagami',
+  '梯子': 'hashigo',
+  '梯': 'hashigo',
+  // Actions and verbs
+  '当': 'ata',
+  '打': 'u',
+  '叩': 'tataki',
+  '投': 'na',
+  '捨': 'su',
+  '拾': 'hiro',
+  '持': 'mo',
+  '取': 'to',
+  '渡': 'wata',
+  '与': 'ata',
+  '貰': 'mora',
+  '買': 'ka',
+  '売': 'u',
+  '借': 'ka',
+  '貸': 'ka',
+  '返': 'kae',
+  '払': 'hara',
+  '貯': 'ta',
+  '使': 'tsuka',
+  '働': 'hatara',
+  '遊': 'aso',
+  '休': 'yasu',
+  '学': 'mana',
+  '教': 'oshi',
+  '勉強': 'benkyou',
+  '研究': 'kenkyuu',
+  '発見': 'hakken',
+  '発明': 'hatsumei',
+  '創造': 'souzou',
+  '想像': 'souzou',
+  '考': 'kanga',
+  '思': 'omo',
+  '感': 'kan',
+  '覚': 'obo',
+  '忘': 'wasu',
+  '知': 'shi',
+  '分': 'wa',
+  '解': 'to',
+  '答': 'kota',
+  '問': 'to',
+  '求': 'moto',
+  '探': 'saga',
+  '捜': 'saga',
+  '調': 'shira',
+  '試': 'kokoro',
+  '挑戦': 'chousen',
+  '努力': 'doryoku',
+  '頑張': 'gamba',
+  '諦': 'akira',
+  '続': 'tsuzu',
+  '終': 'o',
+  '始': 'haji',
+  '開': 'hira',
+  '閉': 'shi',
+  '止': 'to',
+  '停': 'to',
+  '進': 'susu',
+  '退': 'shizoku',
+  '戻': 'modo',
+  '回': 'mawa',
+  '転': 'koro',
+  '落': 'ochi',
+  '昇': 'nobo',
+  '降': 'o',
+  '登': 'nobo',
+  '乗': 'no',
+  '降': 'o'
 };
 
 /**
@@ -178,6 +351,35 @@ const kanjiToReading = {
  */
 function toRomaji(text) {
   if (!text) return '';
+  
+  // Common proverbs and phrases dictionary
+  const commonPhrases = {
+    '犬も歩けば棒にあたる': 'Inu mo Arukeba Bou ni Ataru',
+    '猫に小判': 'Neko ni Koban',
+    '虎穴に入らずんば虎子を得ず': 'Koketsu ni Irazunba Koji wo Ezu',
+    '虎の威を借る狐': 'Tora no I wo Karu Kitsune',
+    '豚に真珠': 'Buta ni Shinju',
+    '猿も木から落ちる': 'Saru mo Ki kara Ochiru',
+    '鬼に金棒': 'Oni ni Kanabou',
+    '馬の耳に念仏': 'Uma no Mimi ni Nenbutsu',
+    '雨降って地固まる': 'Ame Futte Ji Katamaru',
+    '石橋を叩いて渡る': 'Ishibashi wo Tataite Wataru',
+    '急がば回れ': 'Isogaba Maware',
+    '光陰矢の如し': 'Kouin Ya no Gotoshi',
+    '千里の道も一歩から': 'Senri no Michi mo Ippo kara',
+    '塵も積もれば山となる': 'Chiri mo Tsumoreba Yama to Naru',
+    '鉄は熱いうちに打て': 'Tetsu wa Atsui Uchi ni Ute',
+    '時は金なり': 'Toki wa Kane Nari',
+    '能ある鷹は爪を隠す': 'Nou Aru Taka wa Tsume wo Kakusu',
+    '二兎を追う者は一兎をも得ず': 'Nito wo Ou Mono wa Itto wo mo Ezu',
+    '負けるが勝ち': 'Makeru ga Kachi',
+    '百聞は一見に如かず': 'Hyakubun wa Ikken ni Shikazu'
+  };
+  
+  // Check if the entire text matches a common phrase
+  if (commonPhrases[text]) {
+    return commonPhrases[text];
+  }
   
   let result = '';
   let i = 0;
@@ -189,7 +391,7 @@ function toRomaji(text) {
     if (i + 2 < text.length) {
       const threeChar = text.substring(i, i + 3);
       if (kanjiToReading[threeChar]) {
-        result += kanjiToReading[threeChar];
+        result += kanjiToReading[threeChar] + ' ';
         i += 3;
         matched = true;
         continue;
@@ -200,7 +402,7 @@ function toRomaji(text) {
     if (i + 1 < text.length) {
       const twoChar = text.substring(i, i + 2);
       if (kanjiToReading[twoChar]) {
-        result += kanjiToReading[twoChar];
+        result += kanjiToReading[twoChar] + ' ';
         i += 2;
         matched = true;
         continue;
@@ -236,7 +438,7 @@ function toRomaji(text) {
     }
     // Check single kanji
     else if (kanjiToReading[char]) {
-      result += kanjiToReading[char];
+      result += kanjiToReading[char] + ' ';
       matched = true;
     }
     // Keep original character (numbers, English, punctuation, unsupported kanji)
@@ -248,7 +450,7 @@ function toRomaji(text) {
     i++;
   }
   
-  return result;
+  return result.trim();
 }
 
 /**

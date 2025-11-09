@@ -46,6 +46,7 @@ class CreatomateService {
 
       // Create render using v2 API with 'elements' parameter (not template)
       // Creatomate requires 'elements' array for non-template renders
+      // Using max_width and max_height for guaranteed Full HD output
       const renderRequest = {
         elements: composition.elements,
         output_format: 'mp4',
@@ -53,7 +54,9 @@ class CreatomateService {
         height: 1080,
         duration: duration,
         frame_rate: 30,
-        render_scale: 1.0  // Force full resolution (1.0 = 100%, do not downscale)
+        max_width: 1920,   // Ensures output width never exceeds 1920px
+        max_height: 1080   // Ensures output height never exceeds 1080px
+        // Note: When max_width/max_height are set, render_scale is ignored
       };
       
       console.log(`${logPrefix} Sending render request...`);
@@ -115,40 +118,67 @@ class CreatomateService {
       });
     }
     
-    // Add title text (Japanese theme)
+    // Add title text - Line 1: Japanese (original theme)
     elements.push({
       type: 'text',
       text: theme,
       fontFamily: 'Noto Sans JP, Arial',
-      fontSize: 72,
+      fontSize: 64,
       fontWeight: 'bold',
       fillColor: '#ffffff',
       strokeColor: '#000000',
       strokeWidth: 4,
       x: '50%',
-      y: '40%',
+      y: '35%',
       xAnchor: '50%',
       yAnchor: '50%',
       time: 0,
       duration: titleDuration
     });
     
-    // Add English translation (if not Japanese language)
+    // Add title text - Line 2: Romaji (for all languages)
+    const { toRomaji } = require('../utils/romajiConverter');
+    const romajiTitle = toRomaji(theme);
+    
+    // Capitalize first letter of each word in romaji
+    const capitalizedRomaji = romajiTitle
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
+    elements.push({
+      type: 'text',
+      text: capitalizedRomaji,
+      fontFamily: 'Arial, sans-serif',
+      fontSize: 42,
+      fontWeight: 'normal',
+      fillColor: '#ffffff',
+      strokeColor: '#000000',
+      strokeWidth: 3,
+      x: '50%',
+      y: '52%',
+      xAnchor: '50%',
+      yAnchor: '50%',
+      time: 0,
+      duration: titleDuration
+    });
+    
+    // Add language indicator (if not Japanese narration)
     if (language !== 'ja') {
       const languageNames = {
-        'en': 'English',
-        'zh': 'Chinese'
+        'en': 'English Narration',
+        'zh': 'Chinese Narration'
       };
       elements.push({
         type: 'text',
-        text: `(${languageNames[language] || language} narration)`,
+        text: `(${languageNames[language] || language})`,
         fontFamily: 'Arial',
-        fontSize: 36,
+        fontSize: 28,
         fillColor: '#ffffff',
         strokeColor: '#000000',
         strokeWidth: 2,
         x: '50%',
-        y: '60%',
+        y: '65%',
         xAnchor: '50%',
         yAnchor: '50%',
         time: 0,
@@ -187,7 +217,7 @@ class CreatomateService {
       source: audioUrl,
       time: titleDuration,  // Start audio after title screen
       duration: contentDuration,  // Duration matches content (not including title)
-      volume: 6.0  // Increased volume to 6.0 (3x louder than previous 2.0)
+      volume: 10.0  // Maximum recommended volume for YouTube standard
     });
     
     // Remove this section - title is now shown on title screen only
