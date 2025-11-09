@@ -4,7 +4,7 @@ import './VideoGenerator.css';
 function VideoGenerator({ apiKeysConfigured }) {
   const [formData, setFormData] = useState({
     theme: '',
-    duration: 60,
+    duration: 10,  // デフォルトを10秒に変更
     channelName: '',
     privacyStatus: 'private',
     contentType: '',

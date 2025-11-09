@@ -5,6 +5,7 @@ const elevenlabsService = require('./elevenlabsService');
 const creatomateService = require('./creatomateService');
 const youtubeService = require('./youtubeService');
 const pexelsService = require('./pexelsService');
+const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
@@ -68,13 +69,20 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Creating final video...');
       console.log(`[Job ${jobId}] Creating video with Creatomate`);
       
+      // Convert theme to romaji for non-Japanese languages (for text overlay)
+      let displayTheme = theme;
+      if (language === 'en' || language === 'zh') {
+        displayTheme = toRomaji(theme);
+        console.log(`[Job ${jobId}] Theme converted to romaji: ${theme} -> ${displayTheme}`);
+      }
+      
       let videoUrl;
       if (keys.creatomateKey) {
         videoUrl = await creatomateService.createVideo({
           audioUrl,
           visualAssets,
           duration,
-          theme,
+          theme: displayTheme,  // Use romaji-converted theme for display
           creatomateKey: keys.creatomateKey,
           creatomateTemplateId: keys.creatomateTemplateId,
           stabilityAiKey: keys.stabilityAiKey,

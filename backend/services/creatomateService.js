@@ -43,11 +43,15 @@ class CreatomateService {
       console.log(`${logPrefix} Custom composition prepared`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
-      // Create render using v2 API endpoint with correct structure
-      // Reference: https://creatomate.com/docs/api/rest-api/renders
+      // Create render using v2 API with 'elements' parameter (not template)
+      // Creatomate requires 'elements' array for non-template renders
       const renderRequest = {
-        composition: composition.composition,
-        outputs: composition.outputs
+        elements: composition.elements,
+        output_format: 'mp4',
+        width: 1920,
+        height: 1080,
+        duration: duration,
+        frame_rate: 30
       };
       
       console.log(`${logPrefix} Sending render request...`);
@@ -83,14 +87,11 @@ class CreatomateService {
   }
 
   buildCustomComposition(audioUrl, visualAssets, duration, theme) {
-    // Build a custom composition using CORRECT Creatomate API format
-    // Reference: https://creatomate.com/docs/api/rest-api/renders
-    // Key differences:
-    // - Use 'children' not 'elements'
-    // - Separate 'composition' and 'outputs' objects
-    // - Use 'frameRate' not 'frame_rate'
+    // Build elements array for Creatomate API
+    // API requires 'elements' parameter (not composition/children)
+    // Error: "The parameter 'template_id' or 'elements' should be provided"
     
-    const children = [];
+    const elements = [];
     
     // Calculate duration per image (divide total duration by number of images)
     const imageCount = visualAssets.filter(a => a.type === 'image').length;
@@ -98,66 +99,54 @@ class CreatomateService {
     
     console.log(`Building composition: ${imageCount} images, ${durationPerImage}s per image`);
     
-    // Add each image as a sequential child element
+    // Add each image as a sequential element
     let currentTime = 0;
     visualAssets.forEach((asset, index) => {
       if (asset.type === 'image') {
-        children.push({
+        elements.push({
           type: 'image',
-          source: asset.url,  // For 'children' format, use 'source'
+          source: asset.url,
           x: '0%',
           y: '0%',
           width: '100%',
           height: '100%',
-          time: currentTime,  // In 'children' format, use 'time'
+          time: currentTime,
           duration: durationPerImage,
-          fit: 'cover'  // In 'children' format, use 'fit'
+          fit: 'cover'
         });
         currentTime += durationPerImage;
       }
     });
     
     // Add audio track (spans entire video)
-    children.push({
+    elements.push({
       type: 'audio',
-      source: audioUrl,  // In 'children' format, use 'source'
-      time: 0,           // In 'children' format, use 'time'
+      source: audioUrl,
+      time: 0,
       duration: duration,
       volume: 1.0
     });
     
     // Add theme text overlay at the start
-    children.push({
+    elements.push({
       type: 'text',
       text: theme,
-      fontFamily: 'Arial',     // Use camelCase for 'children' format
-      fontSize: 64,            // Use camelCase
-      fillColor: '#ffffff',    // Use camelCase
-      strokeColor: '#000000',  // Use camelCase
-      strokeWidth: 3,          // Use camelCase
-      x: '50%',                // Use percentage for center
-      y: '10%',                // Use percentage
-      xAnchor: '50%',          // Center alignment
+      fontFamily: 'Arial',
+      fontSize: 64,
+      fillColor: '#ffffff',
+      strokeColor: '#000000',
+      strokeWidth: 3,
+      x: '50%',
+      y: '10%',
+      xAnchor: '50%',
       yAnchor: '50%',
-      time: 0,                 // In 'children' format, use 'time'
+      time: 0,
       duration: 3
     });
     
-    // Return in correct Creatomate API format
+    // Return elements array (required by Creatomate API)
     return {
-      composition: {
-        width: 1920,
-        height: 1080,
-        duration: duration,
-        frameRate: 30,  // Use camelCase
-        children: children
-      },
-      outputs: [
-        {
-          format: 'mp4',
-          quality: 'high'
-        }
-      ]
+      elements: elements
     };
   }
 
