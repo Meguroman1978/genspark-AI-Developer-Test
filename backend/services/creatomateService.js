@@ -77,8 +77,8 @@ class CreatomateService {
   }
 
   buildCustomComposition(audioUrl, visualAssets, duration, theme) {
-    // Build a custom composition from scratch
-    // This guarantees our assets will be used
+    // Build a custom composition from scratch using correct Creatomate JSON format
+    // Reference: https://creatomate.com/docs/json/introduction
     
     const elements = [];
     
@@ -94,27 +94,14 @@ class CreatomateService {
       if (asset.type === 'image') {
         elements.push({
           type: 'image',
-          source: asset.url,
-          time: currentTime,
+          src: asset.url,  // Correct field name: 'src' not 'source'
+          x: 0,
+          y: 0,
+          width: 1920,
+          height: 1080,
+          start: currentTime,  // Correct field name: 'start' not 'time'
           duration: durationPerImage,
-          width: '100%',
-          height: '100%',
-          fit: 'cover',
-          animations: [
-            {
-              type: 'fade',
-              fade: 'in',
-              duration: 0.5,
-              easing: 'linear'
-            },
-            {
-              type: 'fade',
-              fade: 'out',
-              duration: 0.5,
-              easing: 'linear',
-              time: durationPerImage - 0.5
-            }
-          ]
+          scale_mode: 'cover'  // Correct field name: 'scale_mode' not 'fit'
         });
         currentTime += durationPerImage;
       }
@@ -123,8 +110,8 @@ class CreatomateService {
     // Add audio track (spans entire video)
     elements.push({
       type: 'audio',
-      source: audioUrl,
-      time: 0,
+      src: audioUrl,  // Correct field name: 'src' not 'source'
+      start: 0,       // Correct field name: 'start' not 'time'
       duration: duration,
       volume: 1.0
     });
@@ -133,41 +120,24 @@ class CreatomateService {
     elements.push({
       type: 'text',
       text: theme,
-      time: 0,
-      duration: 3,
-      x: '50%',
-      y: '10%',
-      width: '80%',
-      height: 'auto',
-      'font-family': 'Noto Sans JP',
-      'font-size': '48px',
-      'font-weight': 'bold',
-      color: '#ffffff',
-      'text-align': 'center',
-      'background-color': 'rgba(0, 0, 0, 0.7)',
-      'border-radius': '10px',
-      padding: '20px',
-      animations: [
-        {
-          type: 'fade',
-          fade: 'in',
-          duration: 0.5
-        },
-        {
-          type: 'fade',
-          fade: 'out',
-          duration: 0.5,
-          time: 2.5
-        }
-      ]
+      font_family: 'Arial',  // Use safe font
+      font_size: 64,
+      fill_color: '#ffffff',
+      stroke_color: '#000000',
+      stroke_width: 3,
+      x: 960,      // Center x position
+      y: 100,      // Near top
+      align: 'center',
+      start: 0,    // Correct field name: 'start' not 'time'
+      duration: 3
     });
     
     return {
       output_format: 'mp4',
       width: 1920,
       height: 1080,
-      frame_rate: 30,
       duration: duration,
+      frame_rate: 30,
       elements: elements
     };
   }
