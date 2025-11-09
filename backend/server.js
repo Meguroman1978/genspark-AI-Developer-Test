@@ -9,13 +9,42 @@ const apiDiagnosticsRoutes = require('./routes/apiDiagnostics');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Auto-detect public URL for sandbox environment
+// Priority: PUBLIC_URL > AUTO_DETECTED > localhost
+if (!process.env.PUBLIC_URL) {
+  // Try to detect if we're in a sandbox environment
+  // This pattern matches common sandbox URL formats
+  const hostname = require('os').hostname();
+  
+  // Check if we have sandbox-specific environment variables
+  if (process.env.SANDBOX_ID || hostname.includes('sandbox')) {
+    console.log('🔍 Sandbox environment detected, attempting to auto-detect public URL...');
+    // We'll set this dynamically when we know the actual host
+    // For now, we'll use a placeholder and handle it in the service
+  } else {
+    console.log('💻 Local development environment detected');
+    process.env.PUBLIC_URL = `http://localhost:${PORT}`;
+  }
+}
+
+if (process.env.PUBLIC_URL) {
+  console.log(`🌐 Public URL set to: ${process.env.PUBLIC_URL}`);
+} else {
+  console.log(`⚠️  No PUBLIC_URL configured. Audio files may not be accessible to Creatomate.`);
+  console.log(`   Set PUBLIC_URL environment variable to your server's public URL.`);
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve temporary files
-app.use('/temp', express.static(path.join(__dirname, 'temp')));
+// Serve temporary files with proper CORS headers
+app.use('/temp', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  next();
+}, express.static(path.join(__dirname, 'temp')));
 
 // Database setup
 const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) => {
