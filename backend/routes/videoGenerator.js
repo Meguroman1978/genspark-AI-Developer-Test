@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat } = req.body;
+  const { theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -19,7 +19,7 @@ router.post('/generate', async (req, res) => {
 
   // Get API keys
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     async (err, keys) => {
       if (err || !keys) {
@@ -64,12 +64,14 @@ router.post('/generate', async (req, res) => {
             language: language || 'ja',
             thumbnailBackground: thumbnailBackground || 'bg1_lantern_street',  // サムネイル背景
             videoFormat: videoFormat || 'normal',  // 'normal' (16:9) or 'shorts' (9:16)
+            videoService: videoService || 'creatomate',  // 'creatomate', 'ffmpeg', or 'shotstack'
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,
               creatomateKey: keys.creatomate_key,
               creatomateTemplateId: keys.creatomate_template_id,
               stabilityAiKey: keys.stability_ai_key,
+              shotstackKey: keys.shotstack_key,
               youtubeCredentials: keys.youtube_credentials
             },
             db

@@ -9,6 +9,7 @@ function ApiKeysSettings({ onSaved }) {
     creatomate_template_id: '',
     creatomate_public_token: '',
     stability_ai_key: '',
+    shotstack_key: '',  // NEW: Shotstack API key
     youtube_client_id: '',
     youtube_client_secret: '',
     youtube_access_token: '',
@@ -86,6 +87,7 @@ function ApiKeysSettings({ onSaved }) {
           creatomate_template_id: '',
           creatomate_public_token: '',
           stability_ai_key: '',
+          shotstack_key: '',
           youtube_client_id: '',
           youtube_client_secret: '',
           youtube_access_token: '',
@@ -244,6 +246,33 @@ function ApiKeysSettings({ onSaved }) {
           >
             → Stability AI APIキーを取得
           </a>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="shotstack_key">
+            Shotstack API Key
+            <span className="help-text">（オプション）月20回まで無料で動画生成できる代替サービス</span>
+          </label>
+          <input
+            type="password"
+            id="shotstack_key"
+            name="shotstack_key"
+            value={formData.shotstack_key}
+            onChange={handleChange}
+            placeholder="..."
+            className="form-input"
+          />
+          <a 
+            href="https://dashboard.shotstack.io/register" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="get-key-link"
+          >
+            → Shotstack無料アカウントを作成
+          </a>
+          <span className="help-text">
+            ✨ Shotstackの利点: 月20回まで無料、Creatomateと同等の品質、簡単なAPI
+          </span>
         </div>
 
         <div className="youtube-section">

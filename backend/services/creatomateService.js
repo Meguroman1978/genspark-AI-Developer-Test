@@ -129,9 +129,17 @@ class CreatomateService {
     const { getBackgroundConfig } = require('../config/backgroundConfig');
     
     const elements = [];
-    const titleDuration = 2; // Title screen duration
+    const titleDuration = 2; // Title screen duration (2 seconds)
     const contentDuration = duration; // Content duration (audio/video) - NOT reduced
-    const totalDuration = titleDuration + contentDuration; // Total video duration (title + content)
+    const safetyBuffer = 3; // Safety buffer to ensure content doesn't cut off
+    const totalDuration = titleDuration + contentDuration + safetyBuffer; // Total: title + content + safety buffer
+    
+    console.log(`${logPrefix || '[Creatomate]'} Duration breakdown:`, {
+      titleDuration,
+      contentDuration,
+      safetyBuffer,
+      totalDuration
+    });
     
     // Get background configuration with text color settings
     const bgConfig = getBackgroundConfig(thumbnailBackground);
@@ -241,11 +249,18 @@ class CreatomateService {
       });
     }
     
-    // Calculate duration per image (divide remaining duration by number of images)
+    // Calculate duration per image (divide content + buffer by number of images)
+    // Images should also extend to cover the safety buffer period
     const imageCount = visualAssets.filter(a => a.type === 'image').length;
-    const durationPerImage = imageCount > 0 ? contentDuration / imageCount : contentDuration;
+    const imageTotalDuration = contentDuration + safetyBuffer; // Images cover content + buffer
+    const durationPerImage = imageCount > 0 ? imageTotalDuration / imageCount : imageTotalDuration;
     
-    console.log(`Building composition: Title ${titleDuration}s + ${imageCount} images x ${durationPerImage}s per image`);
+    console.log(`${logPrefix || '[Creatomate]'} Building composition:`, {
+      titleDuration: `${titleDuration}s`,
+      imageCount,
+      imageTotalDuration: `${imageTotalDuration}s`,
+      durationPerImage: `${durationPerImage.toFixed(2)}s per image`
+    });
     
     // Add each image as a sequential element (starting after title)
     let currentTime = titleDuration;
@@ -260,19 +275,32 @@ class CreatomateService {
           height: '100%',
           time: currentTime,
           duration: durationPerImage,
-          fit: 'cover'  // Changed from 'contain' to 'cover' for full screen
+          fit: 'cover'  // Full screen coverage
         });
         currentTime += durationPerImage;
+        
+        console.log(`${logPrefix || '[Creatomate]'} Added image ${index + 1}/${imageCount}:`, {
+          startTime: `${(currentTime - durationPerImage).toFixed(2)}s`,
+          endTime: `${currentTime.toFixed(2)}s`,
+          duration: `${durationPerImage.toFixed(2)}s`
+        });
       }
     });
     
-    // Add audio track (spans entire video, starts after title)
+    // Add audio track (starts after title, includes safety buffer)
+    // Audio should extend beyond actual content to prevent cutoff
     elements.push({
       type: 'audio',
       source: audioUrl,
-      time: titleDuration,  // Start audio after title screen
-      duration: contentDuration,  // Duration matches content (not including title)
+      time: titleDuration,  // Start audio after title screen (at 2 seconds)
+      duration: contentDuration + safetyBuffer,  // Audio duration includes safety buffer to prevent cutoff
       volume: 10.0  // Maximum recommended volume for YouTube standard
+    });
+    
+    console.log(`${logPrefix || '[Creatomate]'} Audio configuration:`, {
+      audioStartTime: titleDuration,
+      audioDuration: contentDuration + safetyBuffer,
+      audioEndTime: titleDuration + contentDuration + safetyBuffer
     });
     
     // Remove this section - title is now shown on title screen only

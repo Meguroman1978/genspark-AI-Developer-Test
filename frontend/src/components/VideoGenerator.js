@@ -11,7 +11,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     contentType: '',
     language: 'ja',
     thumbnailBackground: 'bg1_lantern_street',  // デフォルト: 提灯の路地
-    videoFormat: 'normal'  // 'normal' (16:9) or 'shorts' (9:16)
+    videoFormat: 'normal',  // 'normal' (16:9) or 'shorts' (9:16)
+    videoService: 'creatomate'  // 'creatomate', 'ffmpeg', or 'shotstack'
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -266,6 +267,25 @@ function VideoGenerator({ apiKeysConfigured }) {
             >
               <option value="normal">📺 通常動画 (16:9 横長)</option>
               <option value="shorts">📱 YouTubeショート (9:16 縦長)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="videoService">
+              動画生成サービス
+              <span className="help-text">使用する動画編集サービスを選択</span>
+            </label>
+            <select
+              id="videoService"
+              name="videoService"
+              value={formData.videoService}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="creatomate">🎬 Creatomate (有料推奨)</option>
+              <option value="ffmpeg">🆓 FFmpeg (完全無料・ローカル処理)</option>
+              <option value="shotstack">⚡ Shotstack (月20回まで無料)</option>
             </select>
           </div>
         </div>

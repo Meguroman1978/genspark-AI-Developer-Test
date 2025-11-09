@@ -9,7 +9,7 @@ const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, keys, db } = config;
+    const { jobId, theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -65,9 +65,10 @@ class VideoGeneratorService {
         console.log(`[Job ${jobId}] Stored ${pexelsUrls.length} Pexels video URLs`);
       }
 
-      // Step 5: Create Final Video with Creatomate
-      await this.updateProgress(db, jobId, 'Creating final video...');
-      console.log(`[Job ${jobId}] Creating video with Creatomate`);
+      // Step 5: Create Final Video with selected service
+      const selectedService = videoService || 'creatomate'; // Default to Creatomate
+      await this.updateProgress(db, jobId, `Creating final video with ${selectedService}...`);
+      console.log(`[Job ${jobId}] Creating video with ${selectedService}`);
       
       // Convert theme to romaji for non-Japanese languages (for text overlay)
       let displayTheme = theme;
@@ -77,33 +78,50 @@ class VideoGeneratorService {
       }
       
       // Get public URL for title background image
-      // CRITICAL: Use sandbox public URL for Creatomate to access files
-      // Creatomate CANNOT access localhost URLs
       const publicUrl = 'https://5000-iukw9njrdih7jga4yuix6-02b9cc79.sandbox.novita.ai';
-      
       console.log(`[Job ${jobId}] Using public URL: ${publicUrl}`);
       
       let videoUrl;
-      if (keys.creatomateKey) {
-        videoUrl = await creatomateService.createVideo({
-          audioUrl,
-          visualAssets,
-          duration,
-          theme: displayTheme,  // Use romaji-converted theme for display
-          originalTheme: theme,  // Original Japanese theme for title
-          creatomateKey: keys.creatomateKey,
-          creatomateTemplateId: keys.creatomateTemplateId,
-          stabilityAiKey: keys.stabilityAiKey,
-          publicUrl,  // Pass public URL for title background
-          language,   // Pass language for title screen
-          thumbnailBackground,  // サムネイル背景の選択
-          videoFormat,  // 'normal' (16:9) or 'shorts' (9:16)
-          jobId
+      const videoConfig = {
+        audioUrl,
+        visualAssets,
+        duration,
+        theme: displayTheme,
+        originalTheme: theme,
+        publicUrl,
+        language,
+        thumbnailBackground,
+        videoFormat,
+        jobId
+      };
+
+      // Select and call appropriate video service
+      if (selectedService === 'ffmpeg') {
+        console.log(`[Job ${jobId}] Using FFmpeg (FREE)`);
+        const ffmpegService = require('./ffmpegService');
+        videoUrl = await ffmpegService.createVideo(videoConfig);
+      } else if (selectedService === 'shotstack') {
+        console.log(`[Job ${jobId}] Using Shotstack (20 free/month)`);
+        if (!keys.shotstackKey) {
+          throw new Error('Shotstack API key not configured. Please add it in settings.');
+        }
+        const shotstackService = require('./shotstackService');
+        videoUrl = await shotstackService.createVideo({
+          ...videoConfig,
+          shotstackKey: keys.shotstackKey
         });
       } else {
-        // Fallback: Create a simple video reference
-        videoUrl = `https://example.com/video-${jobId}.mp4`;
-        console.log(`[Job ${jobId}] Creatomate key not provided, using mock video URL`);
+        // Default: Creatomate
+        console.log(`[Job ${jobId}] Using Creatomate`);
+        if (!keys.creatomateKey) {
+          throw new Error('Creatomate API key not configured. Please add it in settings or select a different service.');
+        }
+        videoUrl = await creatomateService.createVideo({
+          ...videoConfig,
+          creatomateKey: keys.creatomateKey,
+          creatomateTemplateId: keys.creatomateTemplateId,
+          stabilityAiKey: keys.stabilityAiKey
+        });
       }
       console.log(`[Job ${jobId}] Video created: ${videoUrl}`);
 

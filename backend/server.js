@@ -70,7 +70,9 @@ function initializeDatabase() {
       elevenlabs_key TEXT,
       creatomate_key TEXT,
       creatomate_template_id TEXT,
+      creatomate_public_token TEXT,
       stability_ai_key TEXT,
+      shotstack_key TEXT,
       youtube_credentials TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -94,6 +96,11 @@ function initializeDatabase() {
       db.run(`ALTER TABLE api_keys ADD COLUMN creatomate_public_token TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column')) {
           console.error('Error adding creatomate_public_token column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE api_keys ADD COLUMN shotstack_key TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding shotstack_key column:', err.message);
         }
       });
       db.run(`ALTER TABLE api_keys ADD COLUMN youtube_redirect_uri TEXT`, (err) => {
