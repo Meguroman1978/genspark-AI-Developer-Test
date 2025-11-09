@@ -130,33 +130,10 @@ class ElevenLabsService {
   }
 
   getPublicAudioUrl(filename) {
-    // Check for PUBLIC_URL environment variable first
-    if (process.env.PUBLIC_URL) {
-      return `${process.env.PUBLIC_URL}/temp/${filename}`;
-    }
-    
-    // Try to detect sandbox environment and construct public URL
-    const port = process.env.PORT || 5000;
-    
-    // Check if we're in a Novita/GenSpark sandbox
-    // Pattern: https://{port}-{sandbox-id}.sandbox.novita.ai
-    const sandboxId = process.env.SANDBOX_ID;
-    if (sandboxId) {
-      return `https://${port}-${sandboxId}.sandbox.novita.ai/temp/${filename}`;
-    }
-    
-    // Check environment variables that might contain the public host
-    const publicHost = process.env.PUBLIC_HOST || process.env.HOST;
-    if (publicHost && publicHost !== 'localhost' && publicHost !== '127.0.0.1') {
-      const protocol = publicHost.includes('localhost') ? 'http' : 'https';
-      return `${protocol}://${publicHost}/temp/${filename}`;
-    }
-    
-    // Last resort: Use localhost (will NOT work with external services like Creatomate)
-    console.warn(`⚠️  WARNING: Using localhost URL for audio. This will NOT work with Creatomate!`);
-    console.warn(`   Please set PUBLIC_URL environment variable to your server's public URL.`);
-    console.warn(`   Example: PUBLIC_URL=https://5000-your-sandbox-id.sandbox.novita.ai`);
-    return `http://localhost:${port}/temp/${filename}`;
+    // CRITICAL: Use sandbox public URL for Creatomate to access audio files
+    // Creatomate CANNOT access localhost URLs
+    const publicUrl = 'https://5000-iukw9njrdih7jga4yuix6-02b9cc79.sandbox.novita.ai';
+    return `${publicUrl}/temp/${filename}`;
   }
 
   async listVoices(apiKey) {

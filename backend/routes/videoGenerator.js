@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, channelName, privacyStatus, contentType, language, thumbnailBackground, videoFormat } = req.body;
+  const { theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -34,9 +34,9 @@ router.post('/generate', async (req, res) => {
       // Create job record
       const now = new Date().toISOString();
       db.run(
-        `INSERT INTO video_jobs (user_id, theme, duration, channel_name, privacy_status, content_type, language, status, progress, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
-        [userId, theme, duration, channelName, privacyStatus || 'private', contentType || null, language || 'ja', now, now],
+        `INSERT INTO video_jobs (user_id, theme, duration, privacy_status, content_type, language, status, progress, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'processing', 'Starting...', ?, ?)`,
+        [userId, theme, duration, privacyStatus || 'private', contentType || null, language || 'ja', now, now],
         function(err) {
           if (err) {
             console.error('Error creating video job:', err);
@@ -57,7 +57,8 @@ router.post('/generate', async (req, res) => {
             jobId,
             theme,
             duration,
-            channelName,
+            videoTitle: videoTitle || null,  // カスタムタイトル（オプション）
+            videoDescription: videoDescription || null,  // カスタム説明文（オプション）
             privacyStatus: privacyStatus || 'private',
             contentType: contentType || null,
             language: language || 'ja',

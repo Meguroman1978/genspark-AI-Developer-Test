@@ -5,7 +5,8 @@ function VideoGenerator({ apiKeysConfigured }) {
   const [formData, setFormData] = useState({
     theme: '',
     duration: 10,  // デフォルトを10秒に変更
-    channelName: '',
+    videoTitle: '',  // YouTubeタイトル（オプション）
+    videoDescription: '',  // YouTube説明文（オプション）
     privacyStatus: 'private',
     contentType: '',
     language: 'ja',
@@ -84,7 +85,8 @@ function VideoGenerator({ apiKeysConfigured }) {
           userId: 'default_user',
           theme: formData.theme,
           duration: parseInt(formData.duration),
-          channelName: formData.channelName,
+          videoTitle: formData.videoTitle,
+          videoDescription: formData.videoDescription,
           privacyStatus: formData.privacyStatus,
           contentType: formData.contentType,
           language: formData.language,
@@ -319,18 +321,37 @@ function VideoGenerator({ apiKeysConfigured }) {
 
         <div className="form-row">
           <div className="form-group full-width">
-            <label htmlFor="channelName">
-              YouTubeチャンネル名
-              <span className="help-text">（オプション）説明文に記載されます</span>
+            <label htmlFor="videoTitle">
+              YouTube動画タイトル
+              <span className="help-text">（オプション）未入力の場合は自動生成されます</span>
             </label>
             <input
               type="text"
-              id="channelName"
-              name="channelName"
-              value={formData.channelName}
+              id="videoTitle"
+              name="videoTitle"
+              value={formData.videoTitle}
               onChange={handleChange}
-              placeholder="チャンネル名（オプション）"
+              placeholder="例: 犬も歩けば棒にあたる - 日本のことわざ"
               className="form-input"
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="videoDescription">
+              YouTube動画説明文
+              <span className="help-text">（オプション）未入力の場合は自動生成されます</span>
+            </label>
+            <textarea
+              id="videoDescription"
+              name="videoDescription"
+              value={formData.videoDescription}
+              onChange={handleChange}
+              placeholder="動画の説明文を入力してください..."
+              className="form-input"
+              rows="4"
               disabled={loading}
             />
           </div>
