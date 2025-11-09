@@ -40,11 +40,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve temporary files with proper CORS headers
+// Note: temp directory is at project root, not in backend folder
 app.use('/temp', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET');
   next();
-}, express.static(path.join(__dirname, 'temp')));
+}, express.static(path.join(__dirname, '..', 'temp')));
 
 // Database setup
 const db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'), (err) => {
