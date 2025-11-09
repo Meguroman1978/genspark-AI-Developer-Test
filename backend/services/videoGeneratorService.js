@@ -82,6 +82,10 @@ class VideoGeneratorService {
       console.log(`[Job ${jobId}] Using public URL: ${publicUrl}`);
       
       let videoUrl;
+      
+      // Set BGM URL (use default BGM stored in temp directory)
+      const bgmUrl = `${publicUrl}/temp/bgm_default.mp3`;
+      
       const videoConfig = {
         audioUrl,
         visualAssets,
@@ -92,6 +96,7 @@ class VideoGeneratorService {
         language,
         thumbnailBackground,
         videoFormat,
+        bgmUrl,
         jobId
       };
 

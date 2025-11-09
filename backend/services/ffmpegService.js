@@ -16,7 +16,7 @@ class FFmpegService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[FFmpeg]';
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
@@ -31,6 +31,23 @@ class FFmpegService {
       console.log(`${logPrefix} Downloading audio...`);
       const audioPath = await this.downloadFile(audioUrl, 'audio.mp3');
       console.log(`${logPrefix} ✅ Audio downloaded: ${audioPath}`);
+
+      // Download BGM if provided (default BGM always used)
+      let bgmPath = null;
+      if (bgmUrl) {
+        console.log(`${logPrefix} Downloading custom BGM...`);
+        bgmPath = await this.downloadFile(bgmUrl, 'bgm_custom.mp3');
+        console.log(`${logPrefix} ✅ Custom BGM downloaded`);
+      } else {
+        // Use default BGM
+        bgmPath = path.join(this.tempDir, 'bgm_default.mp3');
+        if (fs.existsSync(bgmPath)) {
+          console.log(`${logPrefix} Using default BGM`);
+        } else {
+          console.log(`${logPrefix} ⚠️ Default BGM not found, skipping BGM`);
+          bgmPath = null;
+        }
+      }
 
       // Download images
       console.log(`${logPrefix} Downloading ${visualAssets.length} images...`);
@@ -86,12 +103,16 @@ class FFmpegService {
         totalDuration
       });
 
+      // Get background config for text color
+      const bgConfig = getBackgroundConfig(thumbnailBackground);
+
       // Generate video with FFmpeg
       const outputPath = path.join(this.tempDir, `video_${Date.now()}.mp4`);
       
       await this.generateVideoWithFFmpeg({
         imagePaths,
         audioPath,
+        bgmPath,
         titleBgPath,
         outputPath,
         width,
@@ -100,6 +121,7 @@ class FFmpegService {
         contentDuration,
         totalDuration,
         theme: originalTheme || theme,
+        bgConfig,
         logPrefix
       });
 
@@ -109,8 +131,12 @@ class FFmpegService {
       const videoUrl = `${publicUrl}/temp/${path.basename(outputPath)}`;
       console.log(`${logPrefix} ✅ Video URL: ${videoUrl}`);
 
-      // Cleanup downloaded files
-      this.cleanupFiles([audioPath, ...imagePaths, titleBgPath]);
+      // Cleanup downloaded files (keep bgm_default.mp3, only clean custom BGM)
+      const filesToClean = [audioPath, ...imagePaths, titleBgPath];
+      if (bgmPath && bgmPath.includes('bgm_custom')) {
+        filesToClean.push(bgmPath);
+      }
+      this.cleanupFiles(filesToClean);
 
       return videoUrl;
     } catch (error) {
@@ -120,7 +146,7 @@ class FFmpegService {
   }
 
   async generateVideoWithFFmpeg(config) {
-    const { imagePaths, audioPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, logPrefix } = config;
+    const { imagePaths, audioPath, bgmPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, bgConfig, logPrefix } = config;
 
     // Create filter complex for FFmpeg
     const imageCount = imagePaths.length;
@@ -133,7 +159,16 @@ class FFmpegService {
     let videoStartIndex = 0;
     if (titleBgPath) {
       inputs.push(`-loop 1 -t ${titleDuration} -i "${titleBgPath}"`);
-      filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[title];`;
+      
+      // Prepare text overlay parameters
+      const fontsize = height > 1080 ? 80 : 60;
+      const escapedTheme = theme.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      const fillColor = bgConfig.textColor.fillColor.replace('#', '0x');
+      const strokeColor = bgConfig.textColor.strokeColor.replace('#', '0x');
+      const strokeWidth = bgConfig.textColor.strokeWidth;
+      
+      // Add text overlay to title screen
+      filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,drawtext=text='${escapedTheme}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2,setsar=1,fps=30[title];`;
       videoStartIndex = 1;
     }
 
@@ -158,13 +193,33 @@ class FFmpegService {
       filterComplex += `concat=n=${imageCount}:v=1:a=0[video];`;
     }
 
-    // Add audio with delay if title exists
+    // Add audio mixing (narration + BGM)
     const audioIndex = videoStartIndex + imageCount;
     inputs.push(`-i "${audioPath}"`);
-    if (titleBgPath) {
-      filterComplex += `[${audioIndex}:a]adelay=${titleDuration * 1000}|${titleDuration * 1000},volume=10dB[audio]`;
+    
+    if (bgmPath && fs.existsSync(bgmPath)) {
+      // Add BGM as another input
+      const bgmIndex = audioIndex + 1;
+      inputs.push(`-i "${bgmPath}"`);
+      
+      // Mix narration (volume boosted) with BGM (reduced volume)
+      if (titleBgPath) {
+        // Delay narration to start after title screen
+        filterComplex += `[${audioIndex}:a]adelay=${titleDuration * 1000}|${titleDuration * 1000},volume=10dB[narration];`;
+        filterComplex += `[${bgmIndex}:a]volume=0.15[bgm];`; // BGM at 15% volume to not interfere with narration
+        filterComplex += `[narration][bgm]amix=inputs=2:duration=longest:normalize=0[audio]`;
+      } else {
+        filterComplex += `[${audioIndex}:a]volume=10dB[narration];`;
+        filterComplex += `[${bgmIndex}:a]volume=0.15[bgm];`;
+        filterComplex += `[narration][bgm]amix=inputs=2:duration=longest:normalize=0[audio]`;
+      }
     } else {
-      filterComplex += `[${audioIndex}:a]volume=10dB[audio]`;
+      // No BGM, just narration
+      if (titleBgPath) {
+        filterComplex += `[${audioIndex}:a]adelay=${titleDuration * 1000}|${titleDuration * 1000},volume=10dB[audio]`;
+      } else {
+        filterComplex += `[${audioIndex}:a]volume=10dB[audio]`;
+      }
     }
 
     // Build FFmpeg command

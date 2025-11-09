@@ -2,17 +2,20 @@ const axios = require('axios');
 
 class ShotstackService {
   constructor() {
-    this.baseUrl = 'https://api.shotstack.io/v1';
-    this.stage = 'stage'; // Use 'v1' for production
+    this.baseUrl = 'https://api.shotstack.io';
+    // Production API uses 'v1', staging uses 'stage'
+    // This will be set based on API key prefix
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, shotstackKey, jobId, publicUrl, language, thumbnailBackground, videoFormat } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, shotstackKey, jobId, publicUrl, language, thumbnailBackground, videoFormat, bgmUrl } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Shotstack]';
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
     try {
-      console.log(`${logPrefix} 🎬 Creating video with Shotstack (20 free renders/month)...`);
+      // Determine stage: production keys don't use 'stage' prefix, use 'v1' directly
+      const stage = 'v1'; // Always use v1 for production API keys
+      console.log(`${logPrefix} 🎬 Creating video with Shotstack (API endpoint: ${this.baseUrl}/${stage})...`);
       console.log(`${logPrefix} Audio URL: ${audioUrl}`);
       console.log(`${logPrefix} Visual assets: ${visualAssets.length}`);
       console.log(`${logPrefix} Duration: ${duration} seconds`);
@@ -74,7 +77,7 @@ class ShotstackService {
       console.log(`${logPrefix} Sending render request to Shotstack...`);
 
       const response = await axios.post(
-        `${this.baseUrl}/${this.stage}/render`,
+        `${this.baseUrl}/${stage}/render`,
         renderRequest,
         {
           headers: {
@@ -89,7 +92,7 @@ class ShotstackService {
       console.log(`${logPrefix} Render ID: ${response.data.response.id}`);
 
       // Wait for completion
-      const videoUrl = await this.waitForRender(response.data.response.id, shotstackKey, jobId);
+      const videoUrl = await this.waitForRender(response.data.response.id, shotstackKey, stage, jobId);
       console.log(`${logPrefix} ✅ Video completed: ${videoUrl}`);
 
       return videoUrl;
@@ -238,7 +241,7 @@ class ShotstackService {
     };
   }
 
-  async waitForRender(renderId, apiKey, jobId, maxAttempts = 60) {
+  async waitForRender(renderId, apiKey, stage, jobId, maxAttempts = 60) {
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Shotstack]';
 
     console.log(`${logPrefix} ⏳ Waiting for render to complete...`);
@@ -246,7 +249,7 @@ class ShotstackService {
     for (let i = 0; i < maxAttempts; i++) {
       try {
         const response = await axios.get(
-          `${this.baseUrl}/${this.stage}/render/${renderId}`,
+          `${this.baseUrl}/${stage}/render/${renderId}`,
           {
             headers: {
               'x-api-key': apiKey
