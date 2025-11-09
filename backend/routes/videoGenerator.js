@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService } = req.body;
+  const { theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -56,6 +56,7 @@ router.post('/generate', async (req, res) => {
           videoGeneratorService.generateVideo({
             jobId,
             theme,
+            themeRomaji: themeRomaji || null,  // ローマ字読み（オプション）
             duration,
             videoTitle: videoTitle || null,  // カスタムタイトル（オプション）
             videoDescription: videoDescription || null,  // カスタム説明文（オプション）

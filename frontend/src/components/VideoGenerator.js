@@ -4,6 +4,7 @@ import './VideoGenerator.css';
 function VideoGenerator({ apiKeysConfigured }) {
   const [formData, setFormData] = useState({
     theme: '',
+    themeRomaji: '',  // NEW: ローマ字読み（英語ナレーション用）
     duration: 10,  // デフォルトを10秒に変更
     videoTitle: '',  // YouTubeタイトル（オプション）
     videoDescription: '',  // YouTube説明文（オプション）
@@ -85,6 +86,7 @@ function VideoGenerator({ apiKeysConfigured }) {
         body: JSON.stringify({
           userId: 'default_user',
           theme: formData.theme,
+          themeRomaji: formData.themeRomaji,  // Add romaji for non-Japanese narration
           duration: parseInt(formData.duration),
           videoTitle: formData.videoTitle,
           videoDescription: formData.videoDescription,
@@ -167,10 +169,10 @@ function VideoGenerator({ apiKeysConfigured }) {
 
       <form onSubmit={handleSubmit} className="generator-form">
         <div className="form-row">
-          <div className="form-group full-width">
+          <div className="form-group">
             <label htmlFor="theme">
               <span className="required">* </span>動画のテーマ
-              <span className="help-text">例: 未来都市、深海の生物、古代文明の謎</span>
+              <span className="help-text">例: 灯台下暗し、猿も木から落ちる</span>
             </label>
             <input
               type="text"
@@ -179,6 +181,23 @@ function VideoGenerator({ apiKeysConfigured }) {
               value={formData.theme}
               onChange={handleChange}
               placeholder="動画のテーマを入力してください"
+              className="form-input"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="themeRomaji">
+              動画のテーマ（ローマ字）
+              <span className="help-text">英語・中国語ナレーション用の読み方</span>
+            </label>
+            <input
+              type="text"
+              id="themeRomaji"
+              name="themeRomaji"
+              value={formData.themeRomaji}
+              onChange={handleChange}
+              placeholder="例: Toudai Moto Kurashi"
               className="form-input"
               disabled={loading}
             />

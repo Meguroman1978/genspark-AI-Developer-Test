@@ -9,7 +9,7 @@ const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, keys, db } = config;
+    const { jobId, theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -26,7 +26,11 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Creating story script...');
       console.log(`[Job ${jobId}] Generating script`);
       
-      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat);
+      // Use themeRomaji for non-Japanese languages if provided, otherwise use theme
+      const effectiveTheme = (language !== 'ja' && themeRomaji) ? themeRomaji : theme;
+      console.log(`[Job ${jobId}] Effective theme for script generation: ${effectiveTheme}`);
+      
+      const script = await this.generateScript(effectiveTheme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
       
       // Store the script

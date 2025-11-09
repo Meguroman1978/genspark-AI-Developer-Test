@@ -166,8 +166,8 @@ class FFmpegService {
       const titleFontsize = height > 1080 ? 72 : 54; // Title font size
       const romajiFontsize = height > 1080 ? 48 : 36; // Romaji font size
       
-      const escapedTheme = theme.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
-      const escapedChannel = 'Kotowaza Channel'.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      const escapedTheme = this.escapeFFmpegText(theme);
+      const escapedChannel = this.escapeFFmpegText('Kotowaza Channel');
       
       const fillColor = bgConfig.textColor.fillColor.replace('#', '0x');
       const strokeColor = bgConfig.textColor.strokeColor.replace('#', '0x');
@@ -180,7 +180,7 @@ class FFmpegService {
       // Convert theme to romaji for subtitle
       const { toRomaji } = require('../utils/romajiConverter');
       const romajiTheme = toRomaji(theme);
-      const escapedRomaji = romajiTheme.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      const escapedRomaji = this.escapeFFmpegText(romajiTheme);
       
       // Add multiple text overlays:
       // 1. Channel name at top
@@ -211,10 +211,13 @@ class FFmpegService {
       
       // Get narration chunk for this image
       const chunkText = narrationChunks[i] || '';
-      const escapedChunk = chunkText.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:').replace(/\n/g, ' ');
       
       // Add image with subtitle overlay at bottom
       if (chunkText) {
+        // Escape text for FFmpeg drawtext filter
+        // Replace problematic characters that cause FFmpeg errors
+        const escapedChunk = this.escapeFFmpegText(chunkText);
+        
         filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
         filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h-${subtitleFontsize*3}:box=1:boxcolor=0x000000@0.5:boxborderw=10,`;
         filterComplex += `setsar=1,fps=30[img${i}];`;
@@ -363,6 +366,27 @@ class FFmpegService {
     }
 
     return chunks;
+  }
+
+  escapeFFmpegText(text) {
+    if (!text) return '';
+    
+    // FFmpeg drawtext filter escaping rules:
+    // 1. Backslashes must be escaped first
+    // 2. Single quotes need special handling
+    // 3. Colons need escaping
+    // 4. Replace problematic characters
+    
+    return text
+      .replace(/\\/g, '\\\\\\\\')           // Escape backslashes
+      .replace(/'/g, "'\\\\\\\\\\\\''")     // Escape single quotes (complex due to shell + FFmpeg)
+      .replace(/"/g, '\\\\"')               // Escape double quotes
+      .replace(/:/g, '\\:')                 // Escape colons
+      .replace(/\n/g, ' ')                  // Replace newlines with spaces
+      .replace(/\r/g, '')                   // Remove carriage returns
+      .replace(/\[/g, '\\[')                // Escape square brackets
+      .replace(/\]/g, '\\]')                // Escape square brackets
+      .replace(/%/g, '\\%');                // Escape percent signs
   }
 }
 
