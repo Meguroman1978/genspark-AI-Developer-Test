@@ -50,7 +50,8 @@ class CreatomateService {
         publicUrl, 
         language, 
         thumbnailBackground,
-        videoFormat  // 'normal' or 'shorts'
+        videoFormat,  // 'normal' or 'shorts'
+        jobId  // Pass jobId for logging
       );
       console.log(`${logPrefix} Custom composition prepared (background: ${thumbnailBackground}, format: ${videoFormat})`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
@@ -121,12 +122,13 @@ class CreatomateService {
     }
   }
 
-  buildCustomComposition(audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat) {
+  buildCustomComposition(audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId) {
     // Build elements array for Creatomate API
     // API requires 'elements' parameter (not composition/children)
     // Error: "The parameter 'template_id' or 'elements' should be provided"
     
     const { getBackgroundConfig } = require('../config/backgroundConfig');
+    const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';  // Define logPrefix
     
     const elements = [];
     const titleDuration = 2; // Title screen duration (2 seconds)

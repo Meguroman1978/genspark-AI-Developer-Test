@@ -92,7 +92,8 @@ function VideoGenerator({ apiKeysConfigured }) {
           contentType: formData.contentType,
           language: formData.language,
           thumbnailBackground: formData.thumbnailBackground,
-          videoFormat: formData.videoFormat
+          videoFormat: formData.videoFormat,
+          videoService: formData.videoService  // Add service selection
         })
       });
 
