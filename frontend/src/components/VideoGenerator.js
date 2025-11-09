@@ -235,6 +235,7 @@ function VideoGenerator({ apiKeysConfigured }) {
               <option value="none">なし（最初の画像を使用）</option>
             </select>
           </div>
+        </div>
 
         <div className="form-row">
           <div className="form-group">
