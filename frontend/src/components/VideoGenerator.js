@@ -10,9 +10,9 @@ function VideoGenerator({ apiKeysConfigured }) {
     privacyStatus: 'private',
     contentType: '',
     language: 'ja',
-    thumbnailBackground: 'bg1_lantern_street',  // デフォルト: 提灯の路地
-    videoFormat: 'normal',  // 'normal' (16:9) or 'shorts' (9:16)
-    videoService: 'creatomate'  // 'creatomate', 'ffmpeg', or 'shotstack'
+    thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
+    videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
+    videoService: 'ffmpeg'  // 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -606,7 +606,7 @@ function VideoGenerator({ apiKeysConfigured }) {
                 <details className="artifact-details" open>
                   <summary className="artifact-summary">
                     <span className="artifact-icon">🎬</span>
-                    <span className="artifact-name">Creatomate最終動画</span>
+                    <span className="artifact-name">最終動画</span>
                   </summary>
                   <div className="artifact-content">
                     <video controls className="final-video">
@@ -687,7 +687,7 @@ function VideoGenerator({ apiKeysConfigured }) {
           <li>✍️ <strong>スクリプト生成:</strong> GPT-4が魅力的なナレーション原稿を作成</li>
           <li>🎙️ <strong>音声生成:</strong> ElevenLabsで高品質なナレーション音声を合成</li>
           <li>🎨 <strong>ビジュアル準備:</strong> DALL-E 3で画像生成 / Pexelsで動画素材取得</li>
-          <li>🎬 <strong>動画編集:</strong> Creatomateで音声と映像を統合</li>
+          <li>🎬 <strong>動画編集:</strong> CreatomateやFFmpegなどで音声と映像を統合</li>
           <li>📤 <strong>YouTubeアップロード:</strong> 完成した動画を自動アップロード</li>
         </ol>
       </div>

@@ -26,7 +26,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Creating story script...');
       console.log(`[Job ${jobId}] Generating script`);
       
-      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType, language);
+      const script = await this.generateScript(theme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
       
       // Store the script
@@ -48,7 +48,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Preparing visual assets...');
       console.log(`[Job ${jobId}] Fetching visual assets`);
       
-      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey);
+      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration);
       console.log(`[Job ${jobId}] Visual assets prepared: ${visualAssets.length} assets`);
       
       // Store visual assets URLs
@@ -182,7 +182,7 @@ class VideoGeneratorService {
     }
   }
 
-  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja') {
+  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts') {
     const openai = new OpenAI({ apiKey: openaiKey });
 
     // Calculate approximate word count (average speaking rate: 150 words/minute)
@@ -211,6 +211,9 @@ class VideoGeneratorService {
       ? `\n\nVideo Style: ${typeInstructions[contentType]}`
       : '';
 
+    // Calculate number of images needed (1 image per 2.5 seconds)
+    const imageCount = Math.ceil(duration / 2.5);
+    
     const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".${typeInstruction}
 
 Background Information:
@@ -224,7 +227,7 @@ Requirements:
 - ${langSetting.instruction}
 - Make it suitable for voice narration
 
-Also, suggest 3-5 visual scenes that would accompany this narration. For each scene, provide:
+Also, suggest EXACTLY ${imageCount} visual scenes that would accompany this narration (1 scene per 2.5 seconds). For each scene, provide:
 1. A brief description (for searching stock footage)
 2. Approximate timing in the video
 
@@ -254,8 +257,16 @@ Return your response in the following JSON format:
     return result;
   }
 
-  async prepareVisualAssets(scenes, openaiKey) {
+  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10) {
     const assets = [];
+    
+    // Determine image size based on video format
+    // Shorts (9:16): 1024x1792 (vertical)
+    // Normal (16:9): 1792x1024 (horizontal)
+    const imageSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+    const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical' : '16:9 horizontal';
+    
+    console.log(`Generating ${scenes.length} images in ${aspectRatio} format (${imageSize})`);
 
     // For each scene, try to get stock footage from Pexels
     for (const scene of scenes) {
@@ -271,13 +282,13 @@ Return your response in the following JSON format:
             timing: scene.timing
           });
         } else {
-          // Fallback: Generate image with DALL-E
+          // Fallback: Generate image with DALL-E in correct aspect ratio
           const openai = new OpenAI({ apiKey: openaiKey });
           const imageResponse = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures.`,
+            prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Aspect ratio: ${aspectRatio}.`,
             n: 1,
-            size: '1792x1024'
+            size: imageSize
           });
 
           assets.push({

@@ -144,7 +144,7 @@ class CreatomateService {
     });
     
     // Get background configuration with text color settings
-    const bgConfig = getBackgroundConfig(thumbnailBackground);
+    const bgConfig = getBackgroundConfig(thumbnailBackground, videoFormat);
     console.log(`Using background: ${bgConfig.name.ja} with text color: ${bgConfig.textColor.fillColor}`);
     
     // Add title screen (first 2 seconds) if thumbnailBackground is not 'none'

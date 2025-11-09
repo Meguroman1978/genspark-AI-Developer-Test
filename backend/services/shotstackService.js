@@ -54,6 +54,7 @@ class ShotstackService {
         publicUrl,
         language,
         thumbnailBackground,
+        videoFormat,
         width,
         height,
         logPrefix
@@ -104,7 +105,7 @@ class ShotstackService {
   }
 
   buildTimeline(config) {
-    const { audioUrl, visualAssets, titleDuration, contentDuration, totalDuration, theme, publicUrl, language, thumbnailBackground, width, height, logPrefix } = config;
+    const { audioUrl, visualAssets, titleDuration, contentDuration, totalDuration, theme, publicUrl, language, thumbnailBackground, videoFormat, width, height, logPrefix } = config;
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
     const tracks = [];
@@ -135,7 +136,7 @@ class ShotstackService {
 
     // Add title screen if background exists
     if (thumbnailBackground && thumbnailBackground !== 'none') {
-      const bgConfig = getBackgroundConfig(thumbnailBackground);
+      const bgConfig = getBackgroundConfig(thumbnailBackground, videoFormat);
       let titleBgUrl;
       if (bgConfig.filename === 'title_bg.jpg') {
         titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;

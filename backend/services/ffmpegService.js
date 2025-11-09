@@ -63,7 +63,7 @@ class FFmpegService {
       // Download title background if specified
       let titleBgPath = null;
       if (thumbnailBackground && thumbnailBackground !== 'none') {
-        const bgConfig = getBackgroundConfig(thumbnailBackground);
+        const bgConfig = getBackgroundConfig(thumbnailBackground, videoFormat);
         let titleBgUrl;
         if (bgConfig.filename === 'title_bg.jpg') {
           titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;
@@ -104,7 +104,7 @@ class FFmpegService {
       });
 
       // Get background config for text color
-      const bgConfig = getBackgroundConfig(thumbnailBackground);
+      const bgConfig = getBackgroundConfig(thumbnailBackground, videoFormat);
 
       // Generate video with FFmpeg
       const outputPath = path.join(this.tempDir, `video_${Date.now()}.mp4`);
@@ -160,15 +160,36 @@ class FFmpegService {
     if (titleBgPath) {
       inputs.push(`-loop 1 -t ${titleDuration} -i "${titleBgPath}"`);
       
-      // Prepare text overlay parameters
-      const fontsize = height > 1080 ? 80 : 60;
+      // Prepare text overlay parameters for Japanese font
+      const channelFontsize = height > 1080 ? 48 : 36; // Channel name font size
+      const titleFontsize = height > 1080 ? 72 : 54; // Title font size
+      const romajiFontsize = height > 1080 ? 48 : 36; // Romaji font size
+      
       const escapedTheme = theme.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      const escapedChannel = 'Kotowaza Channel'.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      
       const fillColor = bgConfig.textColor.fillColor.replace('#', '0x');
       const strokeColor = bgConfig.textColor.strokeColor.replace('#', '0x');
       const strokeWidth = bgConfig.textColor.strokeWidth;
       
-      // Add text overlay to title screen
-      filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,drawtext=text='${escapedTheme}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:fontsize=${fontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2,setsar=1,fps=30[title];`;
+      // Japanese font path
+      const japaneseFont = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
+      const englishFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+      
+      // Convert theme to romaji for subtitle
+      const { toRomaji } = require('../utils/romajiConverter');
+      const romajiTheme = toRomaji(theme);
+      const escapedRomaji = romajiTheme.replace(/'/g, "'\\\\\\\\''").replace(/:/g, '\\:');
+      
+      // Add multiple text overlays:
+      // 1. Channel name at top
+      // 2. Japanese title in center
+      // 3. Romaji subtitle below title
+      filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
+      filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
+      filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
+      filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
+      filterComplex += `setsar=1,fps=30[title];`;
       videoStartIndex = 1;
     }
 
