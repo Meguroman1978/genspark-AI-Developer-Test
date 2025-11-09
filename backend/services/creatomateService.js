@@ -8,7 +8,7 @@ class CreatomateService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId } = config;
+    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
 
     try {
@@ -39,8 +39,9 @@ class CreatomateService {
 
       // Build custom composition WITHOUT template
       // This ensures our assets are actually used
-      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme);
-      console.log(`${logPrefix} Custom composition prepared`);
+      // Now includes title screen and volume boost
+      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language);
+      console.log(`${logPrefix} Custom composition prepared (with title screen)`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
       // Create render using v2 API with 'elements' parameter (not template)
@@ -86,21 +87,80 @@ class CreatomateService {
     }
   }
 
-  buildCustomComposition(audioUrl, visualAssets, duration, theme) {
+  buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language) {
     // Build elements array for Creatomate API
     // API requires 'elements' parameter (not composition/children)
     // Error: "The parameter 'template_id' or 'elements' should be provided"
     
     const elements = [];
+    const titleDuration = 2; // Title screen duration
+    const contentDuration = duration - titleDuration; // Remaining time for content
     
-    // Calculate duration per image (divide total duration by number of images)
+    // Add title screen (first 2 seconds)
+    // Using the provided cherry blossom background image
+    const titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;
+    
+    elements.push({
+      type: 'image',
+      source: titleBgUrl,
+      x: '0%',
+      y: '0%',
+      width: '100%',
+      height: '100%',
+      time: 0,
+      duration: titleDuration,
+      fit: 'cover'
+    });
+    
+    // Add title text (Japanese theme)
+    elements.push({
+      type: 'text',
+      text: theme,
+      fontFamily: 'Noto Sans JP, Arial',
+      fontSize: 72,
+      fontWeight: 'bold',
+      fillColor: '#ffffff',
+      strokeColor: '#000000',
+      strokeWidth: 4,
+      x: '50%',
+      y: '40%',
+      xAnchor: '50%',
+      yAnchor: '50%',
+      time: 0,
+      duration: titleDuration
+    });
+    
+    // Add English translation (if not Japanese language)
+    if (language !== 'ja') {
+      const languageNames = {
+        'en': 'English',
+        'zh': 'Chinese'
+      };
+      elements.push({
+        type: 'text',
+        text: `(${languageNames[language] || language} narration)`,
+        fontFamily: 'Arial',
+        fontSize: 36,
+        fillColor: '#ffffff',
+        strokeColor: '#000000',
+        strokeWidth: 2,
+        x: '50%',
+        y: '60%',
+        xAnchor: '50%',
+        yAnchor: '50%',
+        time: 0,
+        duration: titleDuration
+      });
+    }
+    
+    // Calculate duration per image (divide remaining duration by number of images)
     const imageCount = visualAssets.filter(a => a.type === 'image').length;
-    const durationPerImage = imageCount > 0 ? duration / imageCount : duration;
+    const durationPerImage = imageCount > 0 ? contentDuration / imageCount : contentDuration;
     
-    console.log(`Building composition: ${imageCount} images, ${durationPerImage}s per image`);
+    console.log(`Building composition: Title ${titleDuration}s + ${imageCount} images x ${durationPerImage}s per image`);
     
-    // Add each image as a sequential element
-    let currentTime = 0;
+    // Add each image as a sequential element (starting after title)
+    let currentTime = titleDuration;
     visualAssets.forEach((asset, index) => {
       if (asset.type === 'image') {
         elements.push({
@@ -112,37 +172,22 @@ class CreatomateService {
           height: '100%',
           time: currentTime,
           duration: durationPerImage,
-          fit: 'cover'
+          fit: 'cover'  // Changed from 'contain' to 'cover' for full screen
         });
         currentTime += durationPerImage;
       }
     });
     
-    // Add audio track (spans entire video)
+    // Add audio track (spans entire video, starts after title)
     elements.push({
       type: 'audio',
       source: audioUrl,
-      time: 0,
-      duration: duration,
-      volume: 1.0
+      time: titleDuration,  // Start audio after title screen
+      duration: contentDuration,  // Duration matches content (not including title)
+      volume: 2.0  // Increased volume from 1.0 to 2.0 for louder audio
     });
     
-    // Add theme text overlay at the start
-    elements.push({
-      type: 'text',
-      text: theme,
-      fontFamily: 'Arial',
-      fontSize: 64,
-      fillColor: '#ffffff',
-      strokeColor: '#000000',
-      strokeWidth: 3,
-      x: '50%',
-      y: '10%',
-      xAnchor: '50%',
-      yAnchor: '50%',
-      time: 0,
-      duration: 3
-    });
+    // Remove this section - title is now shown on title screen only
     
     // Return elements array (required by Creatomate API)
     return {

@@ -76,6 +76,9 @@ class VideoGeneratorService {
         console.log(`[Job ${jobId}] Theme converted to romaji: ${theme} -> ${displayTheme}`);
       }
       
+      // Get public URL for title background image
+      const publicUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+      
       let videoUrl;
       if (keys.creatomateKey) {
         videoUrl = await creatomateService.createVideo({
@@ -86,6 +89,8 @@ class VideoGeneratorService {
           creatomateKey: keys.creatomateKey,
           creatomateTemplateId: keys.creatomateTemplateId,
           stabilityAiKey: keys.stabilityAiKey,
+          publicUrl,  // Pass public URL for title background
+          language,   // Pass language for title screen
           jobId
         });
       } else {
