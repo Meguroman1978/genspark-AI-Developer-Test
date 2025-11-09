@@ -79,9 +79,9 @@ class CreatomateService {
         height: height,
         duration: duration,
         frame_rate: 30,
-        max_width: width,   // Ensures output width matches format
-        max_height: height  // Ensures output height matches format
-        // Note: When max_width/max_height are set, render_scale is ignored
+        render_scale: 1.0  // CRITICAL: Force full resolution (1.0 = 100%, no downscaling)
+        // Note: render_scale is ignored if max_width or max_height is set
+        // Removed max_width/max_height to allow render_scale to take effect
       };
       
       console.log(`${logPrefix} Sending render request...`);
