@@ -10,20 +10,13 @@ class CreatomateService {
   async createVideo(config) {
     const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
-    
-    // Use custom template ID if provided, otherwise use default
-    const templateId = creatomateTemplateId || this.defaultTemplateId;
 
     try {
       console.log(`${logPrefix} 🎬 Creating video with Creatomate...`);
-      console.log(`${logPrefix} Template ID: ${templateId}`);
       console.log(`${logPrefix} Audio URL: ${audioUrl}`);
       console.log(`${logPrefix} Visual assets: ${visualAssets.length}`);
-      if (stabilityAiKey) {
-        console.log(`${logPrefix} Stability AI integration: enabled`);
-      } else {
-        console.log(`${logPrefix} ⚠️ Warning: No Stability AI key provided. Template may require it.`);
-      }
+      console.log(`${logPrefix} Duration: ${duration} seconds`);
+      console.log(`${logPrefix} Theme: ${theme}`);
 
       // Verify API key first
       try {
@@ -44,17 +37,18 @@ class CreatomateService {
         throw new Error(`Creatomate API key verification failed: ${errorDetail.message}`);
       }
 
-      // Build modifications based on template structure
-      const modifications = this.buildModifications(audioUrl, visualAssets);
-      console.log(`${logPrefix} Modifications prepared:`, JSON.stringify(modifications, null, 2));
+      // Build custom composition WITHOUT template
+      // This ensures our assets are actually used
+      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme);
+      console.log(`${logPrefix} Custom composition prepared`);
+      console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
-      // Create render using v2 API endpoint
+      // Create render using v2 API endpoint with source (composition) instead of template
       console.log(`${logPrefix} Sending render request...`);
       const response = await axios.post(
         `https://api.creatomate.com/v2/renders`,
         {
-          template_id: templateId,
-          modifications: modifications
+          source: composition
         },
         {
           headers: {
@@ -68,7 +62,6 @@ class CreatomateService {
       console.log(`${logPrefix} ✅ Render created successfully`);
       console.log(`${logPrefix} Render ID: ${response.data.id}`);
       console.log(`${logPrefix} Status: ${response.data.status}`);
-      console.log(`${logPrefix} Full response:`, JSON.stringify(response.data, null, 2));
 
       // Wait for completion
       const videoUrl = await this.waitForRender(response.data.id, creatomateKey, jobId);
@@ -83,32 +76,100 @@ class CreatomateService {
     }
   }
 
-  buildModifications(audioUrl, visualAssets) {
-    // Build modifications matching the template structure
-    // Template has: Image-1 through Image-6 and Voiceover-1 through Voiceover-6
-    const modifications = {};
-
-    // Add up to 6 images
-    for (let i = 0; i < 6; i++) {
-      const imageKey = `Image-${i + 1}.source`;
-      
-      if (i < visualAssets.length && visualAssets[i].type === 'image') {
-        modifications[imageKey] = visualAssets[i].url;
-      } else {
-        // Use a placeholder or the first image
-        modifications[imageKey] = visualAssets[0]?.url || '';
+  buildCustomComposition(audioUrl, visualAssets, duration, theme) {
+    // Build a custom composition from scratch
+    // This guarantees our assets will be used
+    
+    const elements = [];
+    
+    // Calculate duration per image (divide total duration by number of images)
+    const imageCount = visualAssets.filter(a => a.type === 'image').length;
+    const durationPerImage = imageCount > 0 ? duration / imageCount : duration;
+    
+    console.log(`Building composition: ${imageCount} images, ${durationPerImage}s per image`);
+    
+    // Add each image as a sequential element
+    let currentTime = 0;
+    visualAssets.forEach((asset, index) => {
+      if (asset.type === 'image') {
+        elements.push({
+          type: 'image',
+          source: asset.url,
+          time: currentTime,
+          duration: durationPerImage,
+          width: '100%',
+          height: '100%',
+          fit: 'cover',
+          animations: [
+            {
+              type: 'fade',
+              fade: 'in',
+              duration: 0.5,
+              easing: 'linear'
+            },
+            {
+              type: 'fade',
+              fade: 'out',
+              duration: 0.5,
+              easing: 'linear',
+              time: durationPerImage - 0.5
+            }
+          ]
+        });
+        currentTime += durationPerImage;
       }
-    }
-
-    // Add the audio URL to all voiceover slots
-    // In a real scenario, you might want to split the audio or use different segments
-    for (let i = 0; i < 6; i++) {
-      const voiceoverKey = `Voiceover-${i + 1}.source`;
-      // Only add audio to the first voiceover slot
-      modifications[voiceoverKey] = i === 0 ? audioUrl : '';
-    }
-
-    return modifications;
+    });
+    
+    // Add audio track (spans entire video)
+    elements.push({
+      type: 'audio',
+      source: audioUrl,
+      time: 0,
+      duration: duration,
+      volume: 1.0
+    });
+    
+    // Add theme text overlay at the start
+    elements.push({
+      type: 'text',
+      text: theme,
+      time: 0,
+      duration: 3,
+      x: '50%',
+      y: '10%',
+      width: '80%',
+      height: 'auto',
+      'font-family': 'Noto Sans JP',
+      'font-size': '48px',
+      'font-weight': 'bold',
+      color: '#ffffff',
+      'text-align': 'center',
+      'background-color': 'rgba(0, 0, 0, 0.7)',
+      'border-radius': '10px',
+      padding: '20px',
+      animations: [
+        {
+          type: 'fade',
+          fade: 'in',
+          duration: 0.5
+        },
+        {
+          type: 'fade',
+          fade: 'out',
+          duration: 0.5,
+          time: 2.5
+        }
+      ]
+    });
+    
+    return {
+      output_format: 'mp4',
+      width: 1920,
+      height: 1080,
+      frame_rate: 30,
+      duration: duration,
+      elements: elements
+    };
   }
 
   async waitForRender(renderId, apiKey, jobId, maxAttempts = 60) {
