@@ -77,12 +77,13 @@ class CreatomateService {
       // 1. Direct width/height specification (primary method)
       // 2. Resolution preset as fallback (1080p)
       // 3. Explicit render_scale set to maximum (1.0)
+      // IMPORTANT: Use totalDuration (title + content) so video plays completely
       const renderRequest = {
         elements: composition.elements,
         output_format: 'mp4',
         width: width,           // Primary: Direct pixel specification for Full HD
         height: height,         // Primary: Direct pixel specification for Full HD
-        duration: duration,
+        duration: composition.totalDuration || duration,  // Use totalDuration (includes title screen)
         frame_rate: 30,
         resolution: '1080p',    // Fallback: Preset resolution (Full HD)
         render_scale: 1.0       // Fallback: Maximum render scale (100%, no downscaling)
@@ -129,7 +130,8 @@ class CreatomateService {
     
     const elements = [];
     const titleDuration = 2; // Title screen duration
-    const contentDuration = duration - titleDuration; // Remaining time for content
+    const contentDuration = duration; // Content duration (audio/video) - NOT reduced
+    const totalDuration = titleDuration + contentDuration; // Total video duration (title + content)
     
     // Get background configuration with text color settings
     const bgConfig = getBackgroundConfig(thumbnailBackground);
@@ -182,7 +184,7 @@ class CreatomateService {
       strokeColor: bgConfig.textColor.strokeColor,
       strokeWidth: bgConfig.textColor.strokeWidth,
       x: '50%',
-      y: videoFormat === 'shorts' ? '40%' : '35%',  // Adjust position for vertical format
+      y: videoFormat === 'shorts' ? '45%' : '42%',  // Centered vertically (closer to middle)
       xAnchor: '50%',
       yAnchor: '50%',
       time: 0,
@@ -209,7 +211,7 @@ class CreatomateService {
       strokeColor: bgConfig.textColor.strokeColor,
       strokeWidth: bgConfig.textColor.strokeWidth - 1,  // Slightly thinner stroke
       x: '50%',
-      y: videoFormat === 'shorts' ? '52%' : '52%',
+      y: videoFormat === 'shorts' ? '55%' : '52%',  // Positioned just below Japanese title
       xAnchor: '50%',
       yAnchor: '50%',
       time: 0,
@@ -231,7 +233,7 @@ class CreatomateService {
         strokeColor: bgConfig.textColor.strokeColor,
         strokeWidth: 2,
         x: '50%',
-        y: videoFormat === 'shorts' ? '60%' : '65%',
+        y: videoFormat === 'shorts' ? '63%' : '60%',  // Positioned below romaji
         xAnchor: '50%',
         yAnchor: '50%',
         time: 0,
@@ -275,9 +277,10 @@ class CreatomateService {
     
     // Remove this section - title is now shown on title screen only
     
-    // Return elements array (required by Creatomate API)
+    // Return elements array and total duration (required by Creatomate API)
     return {
-      elements: elements
+      elements: elements,
+      totalDuration: totalDuration  // Total video duration (title + content)
     };
   }
 

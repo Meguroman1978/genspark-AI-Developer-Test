@@ -51,7 +51,22 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, youtube_credentials } = req.body;
+  const { openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, 
+          youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri } = req.body;
+  
+  // Build YouTube credentials JSON from individual fields if provided
+  let youtube_credentials = null;
+  if (youtube_client_id || youtube_client_secret || youtube_access_token || youtube_refresh_token || youtube_redirect_uri) {
+    const credentials = {};
+    if (youtube_client_id) credentials.client_id = youtube_client_id;
+    if (youtube_client_secret) credentials.client_secret = youtube_client_secret;
+    if (youtube_access_token) credentials.access_token = youtube_access_token;
+    if (youtube_refresh_token) credentials.refresh_token = youtube_refresh_token;
+    if (youtube_redirect_uri) credentials.redirect_uri = youtube_redirect_uri;
+    
+    youtube_credentials = JSON.stringify(credentials);
+    console.log('Built YouTube credentials from individual fields');
+  }
 
   // Check if user already has keys
   db.get(

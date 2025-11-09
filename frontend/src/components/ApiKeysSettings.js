@@ -9,7 +9,11 @@ function ApiKeysSettings({ onSaved }) {
     creatomate_template_id: '',
     creatomate_public_token: '',
     stability_ai_key: '',
-    youtube_credentials: ''
+    youtube_client_id: '',
+    youtube_client_secret: '',
+    youtube_access_token: '',
+    youtube_refresh_token: '',
+    youtube_redirect_uri: 'https://developers.google.com/oauthplayground'  // Default value
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -74,7 +78,7 @@ function ApiKeysSettings({ onSaved }) {
 
       if (response.ok) {
         setMessage('✅ APIキーが正常に保存されました!');
-        // Clear form
+        // Clear form (keep redirect_uri default)
         setFormData({
           openai_key: '',
           elevenlabs_key: '',
@@ -82,7 +86,11 @@ function ApiKeysSettings({ onSaved }) {
           creatomate_template_id: '',
           creatomate_public_token: '',
           stability_ai_key: '',
-          youtube_credentials: ''
+          youtube_client_id: '',
+          youtube_client_secret: '',
+          youtube_access_token: '',
+          youtube_refresh_token: '',
+          youtube_redirect_uri: 'https://developers.google.com/oauthplayground'  // Keep default
         });
         
         if (onSaved) {
@@ -238,9 +246,9 @@ function ApiKeysSettings({ onSaved }) {
           </a>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="youtube_credentials">
-            YouTube API 認証情報
+        <div className="youtube-section">
+          <h3>
+            🎥 YouTube API 認証情報
             <span className="help-text">（オプション）YouTubeへの自動アップロードに必要です</span>
             <button
               type="button"
@@ -249,7 +257,7 @@ function ApiKeysSettings({ onSaved }) {
             >
               {showYouTubeHelp ? '▼' : '▶'} 設定方法を表示
             </button>
-          </label>
+          </h3>
           
           {showYouTubeHelp && (
             <div className="help-box">
@@ -358,14 +366,14 @@ function ApiKeysSettings({ onSaved }) {
               </ol>
 
               <h5>【ステップ3】アプリに設定</h5>
-              <p>以下のJSON形式で入力（<strong className="highlight">redirect_uriは必須</strong>）:</p>
-              <pre>{`{
-  "client_id": "あなたのclient_id.apps.googleusercontent.com",
-  "client_secret": "GOCSPX-あなたのclient_secret",
-  "access_token": "ya29.a0...(Playgroundで取得したもの)",
-  "refresh_token": "1//0g...(Playgroundで取得したもの)",
-  "redirect_uri": "https://developers.google.com/oauthplayground"
-}`}</pre>
+              <p>以下の各フィールドに個別に入力してください：</p>
+              <ul>
+                <li><strong>Client ID</strong>: Google Cloud Consoleで取得したclient_id</li>
+                <li><strong>Client Secret</strong>: Google Cloud Consoleで取得したclient_secret</li>
+                <li><strong>Access Token</strong>: Playgroundで取得したaccess_token</li>
+                <li><strong>Refresh Token</strong>: Playgroundで取得したrefresh_token</li>
+                <li><strong>Redirect URI</strong>: デフォルト値が自動入力されています</li>
+              </ul>
 
               <div className="checklist">
                 <h5>✅ チェックリスト</h5>
@@ -401,15 +409,85 @@ function ApiKeysSettings({ onSaved }) {
             </div>
           )}
           
-          <textarea
-            id="youtube_credentials"
-            name="youtube_credentials"
-            value={formData.youtube_credentials}
-            onChange={handleChange}
-            placeholder='{"client_id": "...", "client_secret": "...", ...}'
-            className="form-textarea"
-            rows="4"
-          />
+          <div className="form-group">
+            <label htmlFor="youtube_client_id">
+              Client ID
+              <span className="help-text">Google Cloud Consoleで取得したOAuthクライアントID</span>
+            </label>
+            <input
+              type="text"
+              id="youtube_client_id"
+              name="youtube_client_id"
+              value={formData.youtube_client_id}
+              onChange={handleChange}
+              placeholder="123456789.apps.googleusercontent.com"
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="youtube_client_secret">
+              Client Secret
+              <span className="help-text">Google Cloud Consoleで取得したOAuthクライアントシークレット</span>
+            </label>
+            <input
+              type="password"
+              id="youtube_client_secret"
+              name="youtube_client_secret"
+              value={formData.youtube_client_secret}
+              onChange={handleChange}
+              placeholder="GOCSPX-..."
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="youtube_access_token">
+              Access Token
+              <span className="help-text">OAuth 2.0 Playgroundで取得したアクセストークン</span>
+            </label>
+            <input
+              type="password"
+              id="youtube_access_token"
+              name="youtube_access_token"
+              value={formData.youtube_access_token}
+              onChange={handleChange}
+              placeholder="ya29.a0..."
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="youtube_refresh_token">
+              Refresh Token
+              <span className="help-text">OAuth 2.0 Playgroundで取得したリフレッシュトークン</span>
+            </label>
+            <input
+              type="password"
+              id="youtube_refresh_token"
+              name="youtube_refresh_token"
+              value={formData.youtube_refresh_token}
+              onChange={handleChange}
+              placeholder="1//0g..."
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="youtube_redirect_uri">
+              Redirect URI
+              <span className="help-text">通常はデフォルト値のまま変更不要です</span>
+            </label>
+            <input
+              type="text"
+              id="youtube_redirect_uri"
+              name="youtube_redirect_uri"
+              value={formData.youtube_redirect_uri}
+              onChange={handleChange}
+              placeholder="https://developers.google.com/oauthplayground"
+              className="form-input"
+            />
+          </div>
         </div>
 
         {message && (
