@@ -9,7 +9,7 @@ const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, duration, channelName, privacyStatus, contentType, language, thumbnailBackground, keys, db } = config;
+    const { jobId, theme, duration, channelName, privacyStatus, contentType, language, thumbnailBackground, videoFormat, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -86,12 +86,14 @@ class VideoGeneratorService {
           visualAssets,
           duration,
           theme: displayTheme,  // Use romaji-converted theme for display
+          originalTheme: theme,  // Original Japanese theme for title
           creatomateKey: keys.creatomateKey,
           creatomateTemplateId: keys.creatomateTemplateId,
           stabilityAiKey: keys.stabilityAiKey,
           publicUrl,  // Pass public URL for title background
           language,   // Pass language for title screen
           thumbnailBackground,  // サムネイル背景の選択
+          videoFormat,  // 'normal' (16:9) or 'shorts' (9:16)
           jobId
         });
       } else {

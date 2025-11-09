@@ -9,7 +9,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     privacyStatus: 'private',
     contentType: '',
     language: 'ja',
-    thumbnailBackground: 'cherry_blossom'  // サムネイル背景の選択
+    thumbnailBackground: 'bg1_lantern_street',  // デフォルト: 提灯の路地
+    videoFormat: 'normal'  // 'normal' (16:9) or 'shorts' (9:16)
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -86,7 +87,9 @@ function VideoGenerator({ apiKeysConfigured }) {
           channelName: formData.channelName,
           privacyStatus: formData.privacyStatus,
           contentType: formData.contentType,
-          language: formData.language
+          language: formData.language,
+          thumbnailBackground: formData.thumbnailBackground,
+          videoFormat: formData.videoFormat
         })
       });
 
@@ -231,8 +234,36 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="cherry_blossom">🌸 桜の窓辺（デフォルト）</option>
+              <option value="bg1_lantern_street">🏮 提灯の路地</option>
+              <option value="bg2_castle_sakura">🏯 桜と城</option>
+              <option value="bg3_winter_village">❄️ 雪の集落</option>
+              <option value="bg4_festival_fireworks">🎆 祭りの花火</option>
+              <option value="bg5_rice_field_fuji">🗻 田園と富士山</option>
+              <option value="bg6_sunset_pagoda">🌅 夕焼けの塔</option>
+              <option value="bg7_cherry_temple">🌸 桜の寺院</option>
+              <option value="bg8_sakura_path">🌸 桜並木</option>
+              <option value="bg9_bamboo_forest">🎋 竹林の道</option>
+              <option value="bg10_shibuya_rain">🌧️ 雨の渋谷</option>
+              <option value="cherry_blossom">🌸 桜の窓辺（旧）</option>
               <option value="none">なし（最初の画像を使用）</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="videoFormat">
+              動画フォーマット
+              <span className="help-text">YouTubeショート or 通常動画</span>
+            </label>
+            <select
+              id="videoFormat"
+              name="videoFormat"
+              value={formData.videoFormat}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="normal">📺 通常動画 (16:9 横長)</option>
+              <option value="shorts">📱 YouTubeショート (9:16 縦長)</option>
             </select>
           </div>
         </div>

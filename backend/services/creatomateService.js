@@ -8,8 +8,9 @@ class CreatomateService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language, thumbnailBackground } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language, thumbnailBackground, videoFormat } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
+    const { getBackgroundConfig } = require('../config/backgroundConfig');
 
     try {
       console.log(`${logPrefix} 🎬 Creating video with Creatomate...`);
@@ -39,23 +40,47 @@ class CreatomateService {
 
       // Build custom composition WITHOUT template
       // This ensures our assets are actually used
-      // Now includes title screen and volume boost
-      const composition = this.buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language, thumbnailBackground);
-      console.log(`${logPrefix} Custom composition prepared (with title screen: ${thumbnailBackground})`);
+      // Now includes title screen, volume boost, and aspect ratio support
+      const composition = this.buildCustomComposition(
+        audioUrl, 
+        visualAssets, 
+        duration, 
+        theme, 
+        originalTheme,  // Pass original theme for Japanese title
+        publicUrl, 
+        language, 
+        thumbnailBackground,
+        videoFormat  // 'normal' or 'shorts'
+      );
+      console.log(`${logPrefix} Custom composition prepared (background: ${thumbnailBackground}, format: ${videoFormat})`);
       console.log(`${logPrefix} Composition structure:`, JSON.stringify(composition, null, 2));
 
       // Create render using v2 API with 'elements' parameter (not template)
       // Creatomate requires 'elements' array for non-template renders
-      // Using max_width and max_height for guaranteed Full HD output
+      // Support for both normal (16:9) and YouTube Shorts (9:16) formats
+      
+      let width, height;
+      if (videoFormat === 'shorts') {
+        // YouTube Shorts: 9:16 vertical format (1080x1920)
+        width = 1080;
+        height = 1920;
+        console.log(`${logPrefix} Using YouTube Shorts format: ${width}x${height} (9:16)`);
+      } else {
+        // Normal: 16:9 horizontal format (1920x1080)
+        width = 1920;
+        height = 1080;
+        console.log(`${logPrefix} Using normal format: ${width}x${height} (16:9)`);
+      }
+      
       const renderRequest = {
         elements: composition.elements,
         output_format: 'mp4',
-        width: 1920,
-        height: 1080,
+        width: width,
+        height: height,
         duration: duration,
         frame_rate: 30,
-        max_width: 1920,   // Ensures output width never exceeds 1920px
-        max_height: 1080   // Ensures output height never exceeds 1080px
+        max_width: width,   // Ensures output width matches format
+        max_height: height  // Ensures output height matches format
         // Note: When max_width/max_height are set, render_scale is ignored
       };
       
@@ -91,45 +116,61 @@ class CreatomateService {
     }
   }
 
-  buildCustomComposition(audioUrl, visualAssets, duration, theme, publicUrl, language, thumbnailBackground) {
+  buildCustomComposition(audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat) {
     // Build elements array for Creatomate API
     // API requires 'elements' parameter (not composition/children)
     // Error: "The parameter 'template_id' or 'elements' should be provided"
+    
+    const { getBackgroundConfig } = require('../config/backgroundConfig');
     
     const elements = [];
     const titleDuration = 2; // Title screen duration
     const contentDuration = duration - titleDuration; // Remaining time for content
     
+    // Get background configuration with text color settings
+    const bgConfig = getBackgroundConfig(thumbnailBackground);
+    console.log(`Using background: ${bgConfig.name.ja} with text color: ${bgConfig.textColor.fillColor}`);
+    
     // Add title screen (first 2 seconds) if thumbnailBackground is not 'none'
     if (thumbnailBackground && thumbnailBackground !== 'none') {
-      // Using the selected background image
-      const titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;  // Currently only cherry_blossom
+      // Determine background image path
+      let titleBgUrl;
+      if (bgConfig.filename === 'title_bg.jpg') {
+        // Legacy cherry blossom
+        titleBgUrl = `${publicUrl}/temp/title_bg.jpg`;
+      } else if (bgConfig.filename) {
+        // New backgrounds
+        titleBgUrl = `${publicUrl}/temp/backgrounds/${bgConfig.filename}`;
+      }
       
-      elements.push({
-        type: 'image',
-        source: titleBgUrl,
-        x: '0%',
-        y: '0%',
-        width: '100%',
-        height: '100%',
-        time: 0,
-        duration: titleDuration,
-        fit: 'cover'
-      });
+      if (titleBgUrl) {
+        elements.push({
+          type: 'image',
+          source: titleBgUrl,
+          x: '0%',
+          y: '0%',
+          width: '100%',
+          height: '100%',
+          time: 0,
+          duration: titleDuration,
+          fit: 'cover'
+        });
+      }
     }
     
-    // Add title text - Line 1: Japanese (original theme)
+    // Add title text - Line 1: Japanese (use originalTheme if available, fallback to theme)
+    const japaneseTitle = originalTheme || theme;
     elements.push({
       type: 'text',
-      text: theme,
+      text: japaneseTitle,
       fontFamily: 'Noto Sans JP, Arial',
-      fontSize: 64,
+      fontSize: videoFormat === 'shorts' ? 56 : 64,  // Smaller font for vertical format
       fontWeight: 'bold',
-      fillColor: '#ffffff',
-      strokeColor: '#000000',
-      strokeWidth: 4,
+      fillColor: bgConfig.textColor.fillColor,  // Auto-adjusted based on background brightness
+      strokeColor: bgConfig.textColor.strokeColor,
+      strokeWidth: bgConfig.textColor.strokeWidth,
       x: '50%',
-      y: '35%',
+      y: videoFormat === 'shorts' ? '40%' : '35%',  // Adjust position for vertical format
       xAnchor: '50%',
       yAnchor: '50%',
       time: 0,
@@ -138,7 +179,7 @@ class CreatomateService {
     
     // Add title text - Line 2: Romaji (for all languages)
     const { toRomaji } = require('../utils/romajiConverter');
-    const romajiTitle = toRomaji(theme);
+    const romajiTitle = toRomaji(japaneseTitle);
     
     // Capitalize first letter of each word in romaji
     const capitalizedRomaji = romajiTitle
@@ -150,13 +191,13 @@ class CreatomateService {
       type: 'text',
       text: capitalizedRomaji,
       fontFamily: 'Arial, sans-serif',
-      fontSize: 42,
+      fontSize: videoFormat === 'shorts' ? 36 : 42,  // Smaller font for vertical format
       fontWeight: 'normal',
-      fillColor: '#ffffff',
-      strokeColor: '#000000',
-      strokeWidth: 3,
+      fillColor: bgConfig.textColor.fillColor,  // Same color as Japanese title
+      strokeColor: bgConfig.textColor.strokeColor,
+      strokeWidth: bgConfig.textColor.strokeWidth - 1,  // Slightly thinner stroke
       x: '50%',
-      y: '52%',
+      y: videoFormat === 'shorts' ? '52%' : '52%',
       xAnchor: '50%',
       yAnchor: '50%',
       time: 0,
@@ -173,12 +214,12 @@ class CreatomateService {
         type: 'text',
         text: `(${languageNames[language] || language})`,
         fontFamily: 'Arial',
-        fontSize: 28,
-        fillColor: '#ffffff',
-        strokeColor: '#000000',
+        fontSize: videoFormat === 'shorts' ? 24 : 28,  // Smaller for vertical format
+        fillColor: bgConfig.textColor.fillColor,  // Same color as title
+        strokeColor: bgConfig.textColor.strokeColor,
         strokeWidth: 2,
         x: '50%',
-        y: '65%',
+        y: videoFormat === 'shorts' ? '60%' : '65%',
         xAnchor: '50%',
         yAnchor: '50%',
         time: 0,
