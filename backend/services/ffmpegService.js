@@ -257,15 +257,16 @@ class FFmpegService {
       
       // Add image with Ken Burns effect (zoom/pan animation) and subtitle overlay
       // Ken Burns effect: slowly zoom in/out and pan for cinematic feel
+      const frameDuration = Math.floor(durationPerImage * 30);
       const kenBurnsEffects = [
         // Zoom in from 1.0 to 1.1 scale
-        `zoompan=z='min(zoom+0.0015,1.1)':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        `zoompan=z='min(zoom+0.0015,1.1)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
         // Zoom out from 1.1 to 1.0 scale
-        `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-        // Pan from left to right
-        `zoompan=z='1.05':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)+min(0,iw-iw*zoom)+(t/${durationPerImage})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-        // Pan from right to left
-        `zoompan=z='1.05':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)+min(0,iw-iw*zoom)-(t/${durationPerImage})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
+        `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        // Pan from left to right (use on and zoom to avoid division issues)
+        `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)+(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        // Pan from right to left (use on and zoom to avoid division issues)
+        `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)-(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
       ];
       // Alternate between effects for variety
       const kenBurnsEffect = kenBurnsEffects[i % kenBurnsEffects.length];
