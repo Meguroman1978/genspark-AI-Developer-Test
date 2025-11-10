@@ -526,6 +526,22 @@ function VideoGenerator({ apiKeysConfigured }) {
                   </summary>
                   <div className="artifact-content">
                     <pre className="script-text">{jobStatus.script_text}</pre>
+                    <div className="download-buttons">
+                      <a 
+                        href={`/api/video/download-script/${jobId}?format=txt`}
+                        download
+                        className="artifact-link"
+                      >
+                        📥 テキスト形式でダウンロード (.txt)
+                      </a>
+                      <a 
+                        href={`/api/video/download-script/${jobId}?format=rtf`}
+                        download
+                        className="artifact-link"
+                      >
+                        📥 RTF形式でダウンロード (.rtf)
+                      </a>
+                    </div>
                   </div>
                 </details>
               )}
