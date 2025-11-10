@@ -210,8 +210,8 @@ class FFmpegService {
         // Overlay logo on title background (title bg is input 0, logo is input 1)
         // Logo size: Half of 5x = 2.5x = 375px for shorts, 500px for higher res
         const logoSize = height > 1080 ? 500 : 375; // Half the previous size (was 1000/750)
-        // Scale background with WHITE background color instead of black
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=white[bg];`;
+        // Scale background with LOGO BACKGROUND COLOR (#F5E6D3 - warm beige)
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=#F5E6D3[bg];`;
         filterComplex += `[1:v]scale=${logoSize}:${logoSize}:force_original_aspect_ratio=decrease[logo];`;
         // Move logo to top: Y position from H*0.08 to H*0.05 (higher up)
         filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.05[bg_logo];`;
@@ -223,8 +223,8 @@ class FFmpegService {
         
         videoStartIndex = 2; // Title bg (0) + logo (1) = images start at 2
       } else {
-        // Fallback to text-only title with WHITE background
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=white,`;
+        // Fallback to text-only title with LOGO BACKGROUND COLOR (#F5E6D3)
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=#F5E6D3,`;
         filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
         filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
         filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
@@ -237,9 +237,9 @@ class FFmpegService {
     // Split narration text into chunks for subtitle display
     const narrationChunks = this.splitNarrationIntoChunks(narrationText, imageCount);
     
-    // Font settings for narration subtitles - 30% smaller again (was 39/29, now 27/20)
-    // Original: 56/42 → First reduction (30%): 39/29 → Second reduction (30%): 27/20
-    const subtitleFontsize = height > 1080 ? 27 : 20; // 30% smaller again to prevent overflow
+    // Font settings for narration subtitles - Adjusted: 10% larger than 27/20 = 30/22
+    // Original: 56/42 → First reduction (30%): 39/29 → Second reduction (30%): 27/20 → Increased 10%: 30/22
+    const subtitleFontsize = height > 1080 ? 30 : 22; // Slightly larger for better readability
     // Use M+ Rounded font for rounded, friendly appearance
     const roundedFontPath = path.join(this.tempDir, 'mplus-rounded.ttf');
     const japaneseFont = fs.existsSync(roundedFontPath) 
@@ -253,6 +253,10 @@ class FFmpegService {
     console.log(`${logPrefix} 🖼️  Processing ${imagePaths.length} images, videoStartIndex=${videoStartIndex}`);
     console.log(`${logPrefix}    Subtitle chunks: ${narrationChunks.length}`);
     
+    // Check if we should use crossfade effect
+    const useCrossfade = (visualMode === 'crossfade');
+    console.log(`${logPrefix}    Visual mode: ${visualMode}, useCrossfade: ${useCrossfade}`);
+    
     for (let i = 0; i < imagePaths.length; i++) {
       const inputIndex = videoStartIndex + i;
       inputs.push(`-loop 1 -t ${durationPerImage} -i "${imagePaths[i]}"`);
@@ -261,26 +265,16 @@ class FFmpegService {
       const chunkText = narrationChunks[i] || '';
       console.log(`${logPrefix}    Image ${i}: input[${inputIndex}], chunk="${chunkText.substring(0, 30)}..."`);
       
-      // Add image with optional Ken Burns effect and subtitle overlay
-      // Ken Burns effect is only applied if visualMode is 'ken-burns'
-      const useKenBurns = (visualMode === 'ken-burns');
+      // Add image with optional crossfade + zoom effect
+      // Crossfade effect is applied if visualMode is 'crossfade'
+      const useCrossfade = (visualMode === 'crossfade');
       
       let imageFilter = '';
-      if (useKenBurns) {
-        // Ken Burns effect: slowly zoom in/out and pan for cinematic feel
+      if (useCrossfade) {
+        // Crossfade + Zoom effect: gentle zoom with smooth transitions
         const frameDuration = Math.floor(durationPerImage * 30);
-        const kenBurnsEffects = [
-          // Zoom in from 1.0 to 1.1 scale
-          `zoompan=z='min(zoom+0.0015,1.1)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-          // Zoom out from 1.1 to 1.0 scale
-          `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-          // Pan from left to right
-          `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)+(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-          // Pan from right to left
-          `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)-(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
-        ];
-        const kenBurnsEffect = kenBurnsEffects[i % kenBurnsEffects.length];
-        imageFilter = `scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect}`;
+        // Simple zoom in effect (1.0 to 1.08 scale over duration)
+        imageFilter = `scale=${width * 1.15}:${height * 1.15}:force_original_aspect_ratio=decrease,zoompan=z='min(1.0+on*0.0008,1.08)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
       } else {
         // Static image mode: simple scale and pad
         imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
@@ -299,18 +293,46 @@ class FFmpegService {
       }
     }
 
-    // Concatenate all video segments
-    if (titleBgPath) {
-      filterComplex += `[title]`;
-      for (let i = 0; i < imageCount; i++) {
-        filterComplex += `[img${i}]`;
+    // Concatenate all video segments with optional crossfade transitions
+    if (useCrossfade) {
+      // Use xfade for smooth crossfade transitions (0.5 second transition)
+      const transitionDuration = 0.5;
+      
+      if (titleBgPath) {
+        // Start with title, then xfade through images
+        filterComplex += `[title][img0]xfade=transition=fade:duration=${transitionDuration}:offset=${titleDuration - transitionDuration}[v0];`;
+        for (let i = 1; i < imageCount; i++) {
+          const offset = titleDuration + (i * durationPerImage) - (i * transitionDuration);
+          filterComplex += `[v${i-1}][img${i}]xfade=transition=fade:duration=${transitionDuration}:offset=${offset}[v${i}];`;
+        }
+        filterComplex += `[v${imageCount - 1}]copy[video];`;
+      } else {
+        // Start with first image, then xfade through rest
+        if (imageCount > 1) {
+          filterComplex += `[img0][img1]xfade=transition=fade:duration=${transitionDuration}:offset=${durationPerImage - transitionDuration}[v1];`;
+          for (let i = 2; i < imageCount; i++) {
+            const offset = (i * durationPerImage) - (i * transitionDuration);
+            filterComplex += `[v${i-1}][img${i}]xfade=transition=fade:duration=${transitionDuration}:offset=${offset}[v${i}];`;
+          }
+          filterComplex += `[v${imageCount - 1}]copy[video];`;
+        } else {
+          filterComplex += `[img0]copy[video];`;
+        }
       }
-      filterComplex += `concat=n=${imageCount + 1}:v=1:a=0[video];`;
     } else {
-      for (let i = 0; i < imageCount; i++) {
-        filterComplex += `[img${i}]`;
+      // Use simple concat for static mode
+      if (titleBgPath) {
+        filterComplex += `[title]`;
+        for (let i = 0; i < imageCount; i++) {
+          filterComplex += `[img${i}]`;
+        }
+        filterComplex += `concat=n=${imageCount + 1}:v=1:a=0[video];`;
+      } else {
+        for (let i = 0; i < imageCount; i++) {
+          filterComplex += `[img${i}]`;
+        }
+        filterComplex += `concat=n=${imageCount}:v=1:a=0[video];`;
       }
-      filterComplex += `concat=n=${imageCount}:v=1:a=0[video];`;
     }
 
     // Add audio mixing (narration + BGM)

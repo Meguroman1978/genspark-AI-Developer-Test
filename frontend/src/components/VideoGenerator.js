@@ -307,7 +307,7 @@ function VideoGenerator({ apiKeysConfigured }) {
           <div className="form-group">
             <label htmlFor="visualMode">
               ビジュアルモード
-              <span className="help-text">静止画 or 動きのあるアニメーション</span>
+              <span className="help-text">静止画 or 動きのある切り替え</span>
             </label>
             <select
               id="visualMode"
@@ -318,14 +318,14 @@ function VideoGenerator({ apiKeysConfigured }) {
               disabled={loading}
             >
               <option value="static">🖼️ 静止画スライド（DALL-E 3）</option>
-              <option value="ken-burns">🎬 動きのあるアニメーション（Ken Burns効果）</option>
+              <option value="crossfade">✨ クロスフェード + ズーム（滑らかな切り替え）</option>
             </select>
           </div>
           
-          {formData.visualMode === 'ken-burns' && (
+          {formData.visualMode === 'crossfade' && (
             <div className="form-group">
               <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '8px', fontSize: '0.9em'}}>
-                <strong>💡 Ken Burns効果:</strong> ゆっくりとしたズーム・パンで映画のような動きを追加します（追加コストなし）
+                <strong>💡 クロスフェード効果:</strong> 画像間を滑らかに切り替えながら、軽いズームで動きを追加します（追加コストなし）
               </div>
             </div>
           )}
