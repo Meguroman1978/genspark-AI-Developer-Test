@@ -13,7 +13,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     language: 'ja',
     thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
-    videoService: 'ffmpeg'  // 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更
+    videoService: 'ffmpeg',  // 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更
+    visualMode: 'images'  // 'images' (DALL-E), or 'stability-video' (Stability AI)
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -95,7 +96,8 @@ function VideoGenerator({ apiKeysConfigured }) {
           language: formData.language,
           thumbnailBackground: formData.thumbnailBackground,
           videoFormat: formData.videoFormat,
-          videoService: formData.videoService  // Add service selection
+          videoService: formData.videoService,  // Add service selection
+          visualMode: formData.visualMode  // Add visual mode selection
         })
       });
 
@@ -299,6 +301,34 @@ function VideoGenerator({ apiKeysConfigured }) {
               <option value="shotstack">⚡ Shotstack (月20回まで無料)</option>
             </select>
           </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="visualMode">
+              ビジュアルモード
+              <span className="help-text">静止画（DALL-E）or アニメーション（Stability AI）</span>
+            </label>
+            <select
+              id="visualMode"
+              name="visualMode"
+              value={formData.visualMode}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="images">🖼️ 静止画スライド（DALL-E 3）</option>
+              <option value="stability-video">🎬 アニメーション動画（Stability AI Video）</option>
+            </select>
+          </div>
+          
+          {formData.visualMode === 'stability-video' && (
+            <div className="form-group">
+              <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '8px', fontSize: '0.9em'}}>
+                <strong>💡 コスト最適化:</strong> 5秒あたり1つの動画を生成します（例: 10秒 = 2動画）
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="form-row">

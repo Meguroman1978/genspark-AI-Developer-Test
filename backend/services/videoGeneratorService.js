@@ -6,10 +6,13 @@ const creatomateService = require('./creatomateService');
 const youtubeService = require('./youtubeService');
 const pexelsService = require('./pexelsService');
 const { toRomaji } = require('../utils/romajiConverter');
+const StabilityAIService = require('./stabilityAIService');
+const path = require('path');
+const fs = require('fs');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, keys, db } = config;
+    const { jobId, theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -52,7 +55,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Preparing visual assets...');
       console.log(`[Job ${jobId}] Fetching visual assets`);
       
-      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration);
+      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration, visualMode, keys.stabilityAiKey, jobId);
       console.log(`[Job ${jobId}] Visual assets prepared: ${visualAssets.length} assets`);
       
       // Store visual assets URLs
@@ -307,50 +310,147 @@ Return your response in the following JSON format:
     return result;
   }
 
-  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10) {
+  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10, visualMode = 'images', stabilityAiKey = null, jobId = null) {
     const assets = [];
     
-    // Determine image size based on video format
+    // Determine image size and aspect ratio based on video format
     // Shorts (9:16): 1024x1792 (vertical)
     // Normal (16:9): 1792x1024 (horizontal)
     const imageSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
     const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical' : '16:9 horizontal';
+    const stabilityAspectRatio = videoFormat === 'shorts' ? '9:16' : '16:9';
     
-    console.log(`Generating ${scenes.length} images in ${aspectRatio} format (${imageSize})`);
+    console.log(`Visual mode: ${visualMode}`);
+    console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageSize})`);
 
-    // For each scene, try to get stock footage from Pexels
-    for (const scene of scenes) {
-      try {
-        // Try Pexels first (free API, no key needed)
-        const videoClips = await pexelsService.searchVideos(scene.searchQuery);
+    // If Stability AI video mode, generate one video per 5 seconds for cost savings
+    if (visualMode === 'stability-video' && stabilityAiKey) {
+      console.log('🎬 Using Stability AI Video Generation mode');
+      const videosNeeded = Math.ceil(duration / 5); // 1 video per 5 seconds
+      console.log(`Generating ${videosNeeded} videos for ${duration}s duration (1 per 5s)`);
+      
+      const stabilityService = new StabilityAIService(stabilityAiKey);
+      const openai = new OpenAI({ apiKey: openaiKey });
+      
+      // Group scenes by video segments (5 seconds each)
+      const videoSegmentSize = 5;
+      const scenesPerVideo = Math.ceil(scenes.length / videosNeeded);
+      
+      for (let i = 0; i < videosNeeded; i++) {
+        const segmentScenes = scenes.slice(i * scenesPerVideo, (i + 1) * scenesPerVideo);
+        const combinedDescription = segmentScenes.map(s => s.description).join(', ');
         
-        if (videoClips && videoClips.length > 0) {
-          assets.push({
-            type: 'video',
-            url: videoClips[0].url,
-            description: scene.description,
-            timing: scene.timing
-          });
-        } else {
-          // Fallback: Generate image with DALL-E in correct aspect ratio
-          const openai = new OpenAI({ apiKey: openaiKey });
+        try {
+          // Step 1: Generate base image with DALL-E
+          console.log(`[Video ${i + 1}/${videosNeeded}] Generating base image...`);
+          const imagePrompt = `High-quality anime style illustration. Style: dynamic Japanese anime art with vibrant colors and expressive characters. Subject: ${combinedDescription}. Requirements: NO TEXT, NO LETTERS, NO WORDS. Anime aesthetic with smooth lines. Aspect ratio: ${aspectRatio}.`;
+          
           const imageResponse = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Aspect ratio: ${aspectRatio}.`,
+            prompt: imagePrompt,
             n: 1,
             size: imageSize
           });
-
+          
+          // Download the image
+          const imageUrl = imageResponse.data[0].url;
+          const imageBuffer = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+          const imagePath = path.join('/tmp', `stability_base_${jobId}_${i}.png`);
+          fs.writeFileSync(imagePath, Buffer.from(imageBuffer.data));
+          console.log(`[Video ${i + 1}/${videosNeeded}] Base image saved: ${imagePath}`);
+          
+          // Step 2: Generate video from image using Stability AI
+          console.log(`[Video ${i + 1}/${videosNeeded}] Generating animated video from image...`);
+          const videoBuffer = await stabilityService.generateVideoFromImage(imagePath, {
+            cfg_scale: 2.5,
+            motion_bucket_id: 127, // Higher = more motion
+            seed: Math.floor(Math.random() * 1000000)
+          });
+          
+          // Save video
+          const videoPath = path.join('/tmp', `stability_video_${jobId}_${i}.mp4`);
+          await stabilityService.saveVideo(videoBuffer, videoPath);
+          console.log(`[Video ${i + 1}/${videosNeeded}] Video generated: ${videoPath}`);
+          
+          // Create public URL for the video
+          const publicUrl = 'https://5000-iukw9njrdih7jga4yuix6-02b9cc79.sandbox.novita.ai';
+          const publicVideoPath = `temp/stability_video_${jobId}_${i}.mp4`;
+          const destPath = path.join(process.cwd(), 'temp', `stability_video_${jobId}_${i}.mp4`);
+          
+          // Copy to public temp directory
+          if (!fs.existsSync(path.join(process.cwd(), 'temp'))) {
+            fs.mkdirSync(path.join(process.cwd(), 'temp'), { recursive: true });
+          }
+          fs.copyFileSync(videoPath, destPath);
+          
+          const videoUrl = `${publicUrl}/${publicVideoPath}`;
+          console.log(`[Video ${i + 1}/${videosNeeded}] Public URL: ${videoUrl}`);
+          
+          assets.push({
+            type: 'stability-video',
+            url: videoUrl,
+            description: combinedDescription,
+            timing: `${i * videoSegmentSize}-${(i + 1) * videoSegmentSize}s`
+          });
+          
+          // Clean up temp image
+          fs.unlinkSync(imagePath);
+        } catch (error) {
+          console.error(`[Video ${i + 1}/${videosNeeded}] Error generating Stability AI video:`, error.message);
+          // Fallback to static image
+          const openai = new OpenAI({ apiKey: openaiKey });
+          const imageResponse = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: `High-quality anime style illustration. Subject: ${combinedDescription}. NO TEXT. Aspect ratio: ${aspectRatio}.`,
+            n: 1,
+            size: imageSize
+          });
+          
           assets.push({
             type: 'image',
             url: imageResponse.data[0].url,
-            description: scene.description,
-            timing: scene.timing
+            description: combinedDescription,
+            timing: `${i * videoSegmentSize}-${(i + 1) * videoSegmentSize}s`
           });
         }
-      } catch (error) {
-        console.error('Error fetching visual asset:', error);
-        // Continue with next scene
+      }
+    } else {
+      // Original mode: images or Pexels videos
+      console.log('🖼️  Using DALL-E Images + Pexels Videos mode');
+      
+      for (const scene of scenes) {
+        try {
+          // Try Pexels first (free API, no key needed)
+          const videoClips = await pexelsService.searchVideos(scene.searchQuery);
+          
+          if (videoClips && videoClips.length > 0) {
+            assets.push({
+              type: 'video',
+              url: videoClips[0].url,
+              description: scene.description,
+              timing: scene.timing
+            });
+          } else {
+            // Fallback: Generate image with DALL-E in correct aspect ratio
+            const openai = new OpenAI({ apiKey: openaiKey });
+            const imageResponse = await openai.images.generate({
+              model: 'dall-e-3',
+              prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Aspect ratio: ${aspectRatio}.`,
+              n: 1,
+              size: imageSize
+            });
+
+            assets.push({
+              type: 'image',
+              url: imageResponse.data[0].url,
+              description: scene.description,
+              timing: scene.timing
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching visual asset:', error);
+          // Continue with next scene
+        }
       }
     }
 
