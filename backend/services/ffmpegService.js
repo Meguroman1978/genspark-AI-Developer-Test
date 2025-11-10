@@ -237,9 +237,9 @@ class FFmpegService {
     // Split narration text into chunks for subtitle display
     const narrationChunks = this.splitNarrationIntoChunks(narrationText, imageCount);
     
-    // Font settings for narration subtitles - 30% smaller to prevent overflow
-    // Original: 56/42, reduced by 30%: 39/29
-    const subtitleFontsize = height > 1080 ? 39 : 29; // 30% smaller to ensure no overflow
+    // Font settings for narration subtitles - 30% smaller again (was 39/29, now 27/20)
+    // Original: 56/42 → First reduction (30%): 39/29 → Second reduction (30%): 27/20
+    const subtitleFontsize = height > 1080 ? 27 : 20; // 30% smaller again to prevent overflow
     // Use M+ Rounded font for rounded, friendly appearance
     const roundedFontPath = path.join(this.tempDir, 'mplus-rounded.ttf');
     const japaneseFont = fs.existsSync(roundedFontPath) 
@@ -416,10 +416,10 @@ class FFmpegService {
     console.log(`🔤 Splitting narration into ${chunkCount} chunks`);
     console.log(`   Text length: ${narrationText.length} characters`);
 
-    // For vertical videos (shorts), use very short lines to prevent horizontal overflow
-    // With 30% smaller font, we can still fit content but need conservative limits
-    const maxCharsPerLine = 20; // Conservative limit for smaller font (was 15)
-    const maxLines = 5; // Maximum 5 lines per subtitle (was 4)
+    // For vertical videos (shorts), with even smaller font (27/20px), we can fit more chars
+    // Font is now 30% smaller again, so we can safely increase chars per line
+    const maxCharsPerLine = 25; // Increased from 20 (smaller font allows more chars)
+    const maxLines = 6; // Maximum 6 lines per subtitle (was 5)
 
     // Split text evenly by character count, not sentences
     const totalChars = narrationText.length;
@@ -431,12 +431,30 @@ class FFmpegService {
     for (let i = 0; i < chunkCount; i++) {
       // Calculate chunk boundaries
       const chunkStart = currentPos;
+      
+      // If this is the last chunk, take all remaining text
+      if (i === chunkCount - 1) {
+        let chunkText = narrationText.substring(chunkStart).trim();
+        
+        // Split into multiple lines if too long
+        if (chunkText.length > maxCharsPerLine) {
+          const lines = this.splitTextIntoLines(chunkText, maxCharsPerLine, maxLines);
+          chunkText = lines.join('\n');
+        }
+        
+        chunks.push(chunkText);
+        console.log(`   Chunk ${i}: ${chunkText.length} chars - "${chunkText.substring(0, 40)}..."`);
+        break;
+      }
+      
+      // For non-last chunks, use charsPerChunk as guide
       let chunkEnd = Math.min(currentPos + charsPerChunk, totalChars);
       
-      // Try to break at sentence boundaries if possible
+      // Try to break at sentence boundaries, but limit search range to avoid consuming too much
       if (chunkEnd < totalChars) {
-        // Look for sentence end markers
-        const searchText = narrationText.substring(chunkEnd, Math.min(chunkEnd + 50, totalChars));
+        // Only look ahead by a small amount (max 30 chars) to find natural break
+        const maxLookahead = Math.min(30, totalChars - chunkEnd);
+        const searchText = narrationText.substring(chunkEnd, chunkEnd + maxLookahead);
         const endMatch = searchText.match(/[。！？\.!?]/);
         if (endMatch) {
           chunkEnd += endMatch.index + 1;
