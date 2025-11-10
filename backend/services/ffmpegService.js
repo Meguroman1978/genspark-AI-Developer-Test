@@ -16,7 +16,7 @@ class FFmpegService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl, narrationText } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl, narrationText, visualMode } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[FFmpeg]';
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
@@ -49,13 +49,17 @@ class FFmpegService {
         }
       }
 
-      // Download images
-      console.log(`${logPrefix} Downloading ${visualAssets.length} images...`);
+      // Download images (filter out Pexels videos for now, focus on DALL-E images)
+      console.log(`${logPrefix} Downloading ${visualAssets.length} visual assets...`);
       const imagePaths = [];
       for (let i = 0; i < visualAssets.length; i++) {
-        if (visualAssets[i].type === 'image') {
-          const imagePath = await this.downloadFile(visualAssets[i].url, `image_${i}.jpg`);
+        const asset = visualAssets[i];
+        // Only download images, skip Pexels videos (future enhancement)
+        if (asset.type === 'image') {
+          const imagePath = await this.downloadFile(asset.url, `image_${i}.jpg`);
           imagePaths.push(imagePath);
+        } else {
+          console.log(`${logPrefix} Skipping ${asset.type} asset at index ${i} (not yet supported in FFmpeg service)`);
         }
       }
       console.log(`${logPrefix} ✅ Downloaded ${imagePaths.length} images`);
@@ -129,6 +133,7 @@ class FFmpegService {
         theme: originalTheme || theme,
         bgConfig,
         narrationText,
+        visualMode: visualMode || 'static', // Default to static if not specified
         logPrefix
       });
 
@@ -153,7 +158,7 @@ class FFmpegService {
   }
 
   async generateVideoWithFFmpeg(config) {
-    const { imagePaths, audioPath, bgmPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, bgConfig, narrationText, logPrefix } = config;
+    const { imagePaths, audioPath, bgmPath, titleBgPath, outputPath, width, height, titleDuration, contentDuration, totalDuration, theme, bgConfig, narrationText, visualMode, logPrefix } = config;
 
     // Create filter complex for FFmpeg
     const imageCount = imagePaths.length;
@@ -256,32 +261,41 @@ class FFmpegService {
       const chunkText = narrationChunks[i] || '';
       console.log(`${logPrefix}    Image ${i}: input[${inputIndex}], chunk="${chunkText.substring(0, 30)}..."`);
       
-      // Add image with Ken Burns effect (zoom/pan animation) and subtitle overlay
-      // Ken Burns effect: slowly zoom in/out and pan for cinematic feel
-      const frameDuration = Math.floor(durationPerImage * 30);
-      const kenBurnsEffects = [
-        // Zoom in from 1.0 to 1.1 scale
-        `zoompan=z='min(zoom+0.0015,1.1)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-        // Zoom out from 1.1 to 1.0 scale
-        `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-        // Pan from left to right (use on and zoom to avoid division issues)
-        `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)+(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
-        // Pan from right to left (use on and zoom to avoid division issues)
-        `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)-(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
-      ];
-      // Alternate between effects for variety
-      const kenBurnsEffect = kenBurnsEffects[i % kenBurnsEffects.length];
+      // Add image with optional Ken Burns effect and subtitle overlay
+      // Ken Burns effect is only applied if visualMode is 'ken-burns'
+      const useKenBurns = (visualMode === 'ken-burns');
+      
+      let imageFilter = '';
+      if (useKenBurns) {
+        // Ken Burns effect: slowly zoom in/out and pan for cinematic feel
+        const frameDuration = Math.floor(durationPerImage * 30);
+        const kenBurnsEffects = [
+          // Zoom in from 1.0 to 1.1 scale
+          `zoompan=z='min(zoom+0.0015,1.1)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+          // Zoom out from 1.1 to 1.0 scale
+          `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+          // Pan from left to right
+          `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)+(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+          // Pan from right to left
+          `zoompan=z='1.05':d=${frameDuration}:x='iw/2-(iw/zoom/2)-(on/${frameDuration})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
+        ];
+        const kenBurnsEffect = kenBurnsEffects[i % kenBurnsEffects.length];
+        imageFilter = `scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect}`;
+      } else {
+        // Static image mode: simple scale and pad
+        imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
+      }
       
       if (chunkText) {
         // Escape text for FFmpeg drawtext filter
         const escapedChunk = this.escapeFFmpegText(chunkText);
         
-        filterComplex += `[${inputIndex}:v]scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect},`;
+        filterComplex += `[${inputIndex}:v]${imageFilter},`;
         // Position subtitle higher: y=h*0.72 (72% down from top)
         filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h*0.72:box=1:boxcolor=0x000000@0.6:boxborderw=15,`;
         filterComplex += `setsar=1,fps=30[img${i}];`;
       } else {
-        filterComplex += `[${inputIndex}:v]scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect},setsar=1,fps=30[img${i}];`;
+        filterComplex += `[${inputIndex}:v]${imageFilter},setsar=1,fps=30[img${i}];`;
       }
     }
 

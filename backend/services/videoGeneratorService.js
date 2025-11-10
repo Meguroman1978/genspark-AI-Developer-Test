@@ -102,6 +102,7 @@ class VideoGeneratorService {
         videoFormat,
         bgmUrl,
         narrationText: script.narration,  // Add narration text for subtitles
+        visualMode: visualMode || 'static',  // Pass visual mode to FFmpeg service
         jobId
       };
 
@@ -347,42 +348,29 @@ Return your response in the following JSON format:
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       try {
-        // Try Pexels first (free API, no key needed)
-        const videoClips = await pexelsService.searchVideos(scene.searchQuery);
+        // Generate image with DALL-E in correct aspect ratio
+        // Ken Burns effect will be applied later in FFmpeg (if visualMode is ken-burns)
+        const visualTheme = visualThemes[i % visualThemes.length];
+        console.log(`Scene ${i+1}/${scenes.length}: Generating DALL-E image with theme "${visualTheme}"`);
         
-        if (videoClips && videoClips.length > 0) {
-          console.log(`Scene ${i+1}: Using Pexels video`);
-          assets.push({
-            type: 'video',
-            url: videoClips[0].url,
-            description: scene.description,
-            timing: scene.timing
-          });
-        } else {
-          // Generate image with DALL-E in correct aspect ratio
-          // Ken Burns effect will be applied later in FFmpeg
-          const visualTheme = visualThemes[i % visualThemes.length];
-          console.log(`Scene ${i+1}: Generating DALL-E image with theme "${visualTheme}"`);
-          
-          const openai = new OpenAI({ apiKey: openaiKey });
-          const imageResponse = await openai.images.generate({
-            model: 'dall-e-3',
-            prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. Aspect ratio: ${aspectRatio}.`,
-            n: 1,
-            size: imageSize
-          });
+        const openai = new OpenAI({ apiKey: openaiKey });
+        const imageResponse = await openai.images.generate({
+          model: 'dall-e-3',
+          prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. Aspect ratio: ${aspectRatio}.`,
+          n: 1,
+          size: imageSize
+        });
 
-          console.log(`Scene ${i+1}: Image generated - ${imageResponse.data[0].url.substring(0, 50)}...`);
-          assets.push({
-            type: 'image',
-            url: imageResponse.data[0].url,
-            description: scene.description,
-            timing: scene.timing
-          });
-        }
+        console.log(`Scene ${i+1}/${scenes.length}: Image generated successfully`);
+        assets.push({
+          type: 'image',
+          url: imageResponse.data[0].url,
+          description: scene.description,
+          timing: scene.timing
+        });
       } catch (error) {
-        console.error(`Scene ${i+1}: Error fetching visual asset:`, error);
-        // Continue with next scene
+        console.error(`Scene ${i+1}/${scenes.length}: Error generating image:`, error.message);
+        // Continue with next scene even if one fails
       }
     }
 
