@@ -241,12 +241,16 @@ class FFmpegService {
     const subtitleStrokeWidth = 4; // Thicker stroke for better readability
     
     // Add images with subtitle overlays
+    console.log(`${logPrefix} 🖼️  Processing ${imagePaths.length} images, videoStartIndex=${videoStartIndex}`);
+    console.log(`${logPrefix}    Subtitle chunks: ${narrationChunks.length}`);
+    
     for (let i = 0; i < imagePaths.length; i++) {
       const inputIndex = videoStartIndex + i;
       inputs.push(`-loop 1 -t ${durationPerImage} -i "${imagePaths[i]}"`);
       
       // Get narration chunk for this image
       const chunkText = narrationChunks[i] || '';
+      console.log(`${logPrefix}    Image ${i}: input[${inputIndex}], chunk="${chunkText.substring(0, 30)}..."`);
       
       // Add image with subtitle overlay at bottom
       if (chunkText) {
@@ -373,71 +377,96 @@ class FFmpegService {
       return [];
     }
 
-    // Split by sentences (period, question mark, exclamation mark)
-    const sentences = narrationText.split(/([。！？\.!?])/g).filter(s => s.trim());
-    
-    // Recombine sentence parts
-    const fullSentences = [];
-    for (let i = 0; i < sentences.length; i += 2) {
-      const sentence = sentences[i] + (sentences[i + 1] || '');
-      if (sentence.trim()) {
-        fullSentences.push(sentence.trim());
-      }
-    }
+    console.log(`🔤 Splitting narration into ${chunkCount} chunks`);
+    console.log(`   Text length: ${narrationText.length} characters`);
 
-    // Distribute sentences across chunks
-    const chunks = [];
-    const sentencesPerChunk = Math.ceil(fullSentences.length / chunkCount);
+    // For vertical videos (shorts), use shorter lines
+    const maxCharsPerLine = 20; // Shorter for vertical format
+    const maxLines = 3; // Maximum 3 lines per subtitle
+
+    // Split text evenly by character count, not sentences
+    const totalChars = narrationText.length;
+    const charsPerChunk = Math.ceil(totalChars / chunkCount);
     
+    const chunks = [];
+    let currentPos = 0;
+
     for (let i = 0; i < chunkCount; i++) {
-      const start = i * sentencesPerChunk;
-      const end = Math.min(start + sentencesPerChunk, fullSentences.length);
-      let chunkText = fullSentences.slice(start, end).join(' ');
+      // Calculate chunk boundaries
+      const chunkStart = currentPos;
+      let chunkEnd = Math.min(currentPos + charsPerChunk, totalChars);
       
-      // Split long lines to prevent text overflow
-      // Maximum characters per line: 30 for Japanese (smaller for readability)
-      const maxCharsPerLine = 30;
+      // Try to break at sentence boundaries if possible
+      if (chunkEnd < totalChars) {
+        // Look for sentence end markers
+        const searchText = narrationText.substring(chunkEnd, Math.min(chunkEnd + 50, totalChars));
+        const endMatch = searchText.match(/[。！？\.!?]/);
+        if (endMatch) {
+          chunkEnd += endMatch.index + 1;
+        } else {
+          // Look for space
+          const spaceMatch = searchText.match(/\s/);
+          if (spaceMatch) {
+            chunkEnd += spaceMatch.index + 1;
+          }
+        }
+      }
+      
+      let chunkText = narrationText.substring(chunkStart, chunkEnd).trim();
+      
+      // Split into multiple lines if too long
       if (chunkText.length > maxCharsPerLine) {
-        // Split into multiple lines at natural break points
-        const lines = this.splitTextIntoLines(chunkText, maxCharsPerLine);
+        const lines = this.splitTextIntoLines(chunkText, maxCharsPerLine, maxLines);
         chunkText = lines.join('\n');
       }
       
       chunks.push(chunkText);
+      console.log(`   Chunk ${i}: ${chunkText.length} chars - "${chunkText.substring(0, 40)}..."`);
+      
+      currentPos = chunkEnd;
     }
 
+    console.log(`✅ Created ${chunks.length} subtitle chunks`);
     return chunks;
   }
 
-  splitTextIntoLines(text, maxLength) {
+  splitTextIntoLines(text, maxLength, maxLines = 3) {
     const lines = [];
     let currentLine = '';
     
-    // Split by natural break points (commas, particles, etc.)
-    const words = text.split(/([、,，\s])/g);
+    // Split by natural break points (spaces, commas, particles)
+    const words = text.split(/([\s、。,\.]+)/g).filter(w => w);
     
     for (const word of words) {
-      if ((currentLine + word).length <= maxLength) {
-        currentLine += word;
+      const testLine = currentLine + word;
+      
+      if (testLine.length <= maxLength) {
+        currentLine = testLine;
       } else {
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          // Word itself is too long, force break
-          lines.push(word.substring(0, maxLength));
-          currentLine = word.substring(maxLength);
+        if (currentLine.trim()) {
+          lines.push(currentLine.trim());
+        }
+        currentLine = word;
+        
+        // If we've reached max lines, stop
+        if (lines.length >= maxLines - 1) {
+          break;
         }
       }
     }
     
-    if (currentLine) {
-      lines.push(currentLine);
+    // Add remaining text
+    if (currentLine.trim() && lines.length < maxLines) {
+      lines.push(currentLine.trim());
     }
     
-    // Limit to 3 lines maximum
-    if (lines.length > 3) {
-      return [lines.slice(0, 2).join('\n'), lines.slice(2).join('\n').substring(0, maxLength) + '...'];
+    // If still too long after maxLines, truncate
+    if (lines.length >= maxLines) {
+      const lastLine = lines[maxLines - 1];
+      if (lastLine.length > maxLength) {
+        lines[maxLines - 1] = lastLine.substring(0, maxLength - 3) + '...';
+      }
+      return lines.slice(0, maxLines);
     }
     
     return lines;
