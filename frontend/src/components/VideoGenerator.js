@@ -14,7 +14,7 @@ function VideoGenerator({ apiKeysConfigured }) {
     thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
     videoService: 'ffmpeg',  // 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更
-    visualMode: 'images'  // 'images' (DALL-E), or 'stability-video' (Stability AI)
+    visualMode: 'ken-burns'  // 'static' (静止画), or 'ken-burns' (動きのあるアニメーション)
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -307,7 +307,7 @@ function VideoGenerator({ apiKeysConfigured }) {
           <div className="form-group">
             <label htmlFor="visualMode">
               ビジュアルモード
-              <span className="help-text">静止画（DALL-E）or アニメーション（Stability AI）</span>
+              <span className="help-text">静止画 or 動きのあるアニメーション</span>
             </label>
             <select
               id="visualMode"
@@ -317,15 +317,15 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="images">🖼️ 静止画スライド（DALL-E 3）</option>
-              <option value="stability-video">🎬 アニメーション動画（Stability AI Video）</option>
+              <option value="static">🖼️ 静止画スライド（DALL-E 3）</option>
+              <option value="ken-burns">🎬 動きのあるアニメーション（Ken Burns効果）</option>
             </select>
           </div>
           
-          {formData.visualMode === 'stability-video' && (
+          {formData.visualMode === 'ken-burns' && (
             <div className="form-group">
               <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '8px', fontSize: '0.9em'}}>
-                <strong>💡 コスト最適化:</strong> 5秒あたり1つの動画を生成します（例: 10秒 = 2動画）
+                <strong>💡 Ken Burns効果:</strong> ゆっくりとしたズーム・パンで映画のような動きを追加します（追加コストなし）
               </div>
             </div>
           )}

@@ -203,12 +203,13 @@ class FFmpegService {
         inputs.push(`-i "${logoPath}"`);
         
         // Overlay logo on title background (title bg is input 0, logo is input 1)
-        // Logo size: 5x larger = 750px for shorts (1080x1920), 1000px for higher res
-        const logoSize = height > 1080 ? 1000 : 750; // MUCH larger logo (5x increase from 150/200)
+        // Logo size: Half of 5x = 2.5x = 375px for shorts, 500px for higher res
+        const logoSize = height > 1080 ? 500 : 375; // Half the previous size (was 1000/750)
         // Scale background with WHITE background color instead of black
         filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=white[bg];`;
         filterComplex += `[1:v]scale=${logoSize}:${logoSize}:force_original_aspect_ratio=decrease[logo];`;
-        filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.08[bg_logo];`;
+        // Move logo to top: Y position from H*0.08 to H*0.05 (higher up)
+        filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.05[bg_logo];`;
         
         // Add text overlays on top of background+logo
         filterComplex += `[bg_logo]drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
@@ -254,18 +255,31 @@ class FFmpegService {
       const chunkText = narrationChunks[i] || '';
       console.log(`${logPrefix}    Image ${i}: input[${inputIndex}], chunk="${chunkText.substring(0, 30)}..."`);
       
-      // Add image with subtitle overlay at bottom
+      // Add image with Ken Burns effect (zoom/pan animation) and subtitle overlay
+      // Ken Burns effect: slowly zoom in/out and pan for cinematic feel
+      const kenBurnsEffects = [
+        // Zoom in from 1.0 to 1.1 scale
+        `zoompan=z='min(zoom+0.0015,1.1)':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        // Zoom out from 1.1 to 1.0 scale
+        `zoompan=z='if(lte(zoom,1.0),1.1,max(1.001,zoom-0.0015))':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        // Pan from left to right
+        `zoompan=z='1.05':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)+min(0,iw-iw*zoom)+(t/${durationPerImage})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`,
+        // Pan from right to left
+        `zoompan=z='1.05':d=${Math.floor(durationPerImage * 30)}:x='iw/2-(iw/zoom/2)+min(0,iw-iw*zoom)-(t/${durationPerImage})*iw*0.1':y='ih/2-(ih/zoom/2)':s=${width}x${height}`
+      ];
+      // Alternate between effects for variety
+      const kenBurnsEffect = kenBurnsEffects[i % kenBurnsEffects.length];
+      
       if (chunkText) {
         // Escape text for FFmpeg drawtext filter
-        // Replace problematic characters that cause FFmpeg errors
         const escapedChunk = this.escapeFFmpegText(chunkText);
         
-        filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
-        // Position subtitle higher: y=h*0.75 (75% down from top) instead of y=h-X (from bottom)
+        filterComplex += `[${inputIndex}:v]scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect},`;
+        // Position subtitle higher: y=h*0.72 (72% down from top)
         filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h*0.72:box=1:boxcolor=0x000000@0.6:boxborderw=15,`;
         filterComplex += `setsar=1,fps=30[img${i}];`;
       } else {
-        filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[img${i}];`;
+        filterComplex += `[${inputIndex}:v]scale=${width * 1.2}:${height * 1.2}:force_original_aspect_ratio=decrease,${kenBurnsEffect},setsar=1,fps=30[img${i}];`;
       }
     }
 
@@ -386,9 +400,9 @@ class FFmpegService {
     console.log(`🔤 Splitting narration into ${chunkCount} chunks`);
     console.log(`   Text length: ${narrationText.length} characters`);
 
-    // For vertical videos (shorts), use shorter lines
-    const maxCharsPerLine = 20; // Shorter for vertical format
-    const maxLines = 3; // Maximum 3 lines per subtitle
+    // For vertical videos (shorts), use shorter lines to prevent horizontal overflow
+    const maxCharsPerLine = 15; // Even shorter to ensure no overflow (was 20)
+    const maxLines = 4; // Maximum 4 lines per subtitle (was 3)
 
     // Split text evenly by character count, not sentences
     const totalChars = narrationText.length;

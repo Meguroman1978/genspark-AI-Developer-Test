@@ -185,6 +185,10 @@ class YouTubeService {
       }
       
       if (error.code === 403) {
+        // Check if it's a quota exceeded error
+        if (error.message.includes('quota') || error.message.includes('quotaExceeded')) {
+          throw new Error('YouTube API daily quota exceeded. You have reached the daily upload limit. Please wait until tomorrow or request a quota increase from Google Cloud Console.');
+        }
         throw new Error('YouTube API access denied. Please ensure YouTube Data API v3 is enabled in Google Cloud Console.');
       }
 
