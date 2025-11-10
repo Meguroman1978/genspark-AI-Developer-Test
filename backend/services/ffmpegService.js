@@ -232,8 +232,9 @@ class FFmpegService {
     // Split narration text into chunks for subtitle display
     const narrationChunks = this.splitNarrationIntoChunks(narrationText, imageCount);
     
-    // Font settings for narration subtitles - LARGER and HIGHER position
-    const subtitleFontsize = height > 1080 ? 56 : 42; // Increased from 32/24 to 56/42
+    // Font settings for narration subtitles - 30% smaller to prevent overflow
+    // Original: 56/42, reduced by 30%: 39/29
+    const subtitleFontsize = height > 1080 ? 39 : 29; // 30% smaller to ensure no overflow
     // Use M+ Rounded font for rounded, friendly appearance
     const roundedFontPath = path.join(this.tempDir, 'mplus-rounded.ttf');
     const japaneseFont = fs.existsSync(roundedFontPath) 
@@ -401,9 +402,10 @@ class FFmpegService {
     console.log(`🔤 Splitting narration into ${chunkCount} chunks`);
     console.log(`   Text length: ${narrationText.length} characters`);
 
-    // For vertical videos (shorts), use shorter lines to prevent horizontal overflow
-    const maxCharsPerLine = 15; // Even shorter to ensure no overflow (was 20)
-    const maxLines = 4; // Maximum 4 lines per subtitle (was 3)
+    // For vertical videos (shorts), use very short lines to prevent horizontal overflow
+    // With 30% smaller font, we can still fit content but need conservative limits
+    const maxCharsPerLine = 20; // Conservative limit for smaller font (was 15)
+    const maxLines = 5; // Maximum 5 lines per subtitle (was 4)
 
     // Split text evenly by character count, not sentences
     const totalChars = narrationText.length;

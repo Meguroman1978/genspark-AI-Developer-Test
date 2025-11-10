@@ -259,18 +259,28 @@ Additional Requirements:
 - ${langSetting.instruction}
 - The narration should fill exactly ${duration} seconds when read aloud
 
-Also, suggest EXACTLY ${imageCount} visual scenes that would accompany this narration (1 scene per 2.5 seconds). For each scene, provide:
-1. A brief description (for searching stock footage)
+Also, suggest EXACTLY ${imageCount} visual scenes that would accompany this narration (1 scene per 2.5 seconds). 
+
+IMPORTANT - VISUAL VARIETY REQUIREMENTS:
+- Each scene MUST be COMPLETELY DIFFERENT from the others
+- Use diverse settings: indoor/outdoor, close-up/wide shot, different times of day, different locations
+- Vary the subjects: people, animals, objects, nature, buildings, abstract concepts
+- Each scene should represent a different aspect of the story or theme
+- Ensure visual progression that tells a story
+
+For each scene, provide:
+1. A UNIQUE and SPECIFIC description (make each scene distinctly different)
 2. Approximate timing in the video
+3. Search terms for finding diverse stock footage
 
 Return your response in the following JSON format:
 {
   "narration": "Full script text here...",
   "scenes": [
     {
-      "description": "Scene description for visual search",
-      "timing": "0-10s",
-      "searchQuery": "search terms for stock footage"
+      "description": "SPECIFIC and UNIQUE scene description - be very detailed and different from other scenes",
+      "timing": "0-2.5s",
+      "searchQuery": "specific search terms for this unique scene"
     }
   ]
 }`;
@@ -282,7 +292,9 @@ Return your response in the following JSON format:
       messages: [
         { 
           role: 'system', 
-          content: `You are a professional video script writer. Always respond with valid JSON. CRITICAL: You must strictly adhere to the specified script length. Count ${lengthUnit} carefully and ensure the narration does not exceed the maximum length specified.` 
+          content: `You are a professional video script writer and visual director. Always respond with valid JSON. CRITICAL: 
+1. You must strictly adhere to the specified script length. Count ${lengthUnit} carefully and ensure the narration does not exceed the maximum length specified.
+2. Each visual scene MUST be completely unique and different from others. Create diverse, varied scenes that progress through the story with different settings, subjects, and perspectives. Avoid repetitive or similar scene descriptions.` 
         },
         { role: 'user', content: prompt }
       ],
@@ -322,12 +334,24 @@ Return your response in the following JSON format:
     // Generate DALL-E images with Ken Burns effect applied in FFmpeg
     console.log('🎬 Using DALL-E Images with Ken Burns Animation Effect');
     
-    for (const scene of scenes) {
+    // Visual variety themes to ensure each slide looks different
+    const visualThemes = [
+      'vibrant colorful scene with dynamic composition',
+      'serene peaceful atmosphere with soft pastel colors',
+      'dramatic lighting with strong contrasts and shadows',
+      'warm golden hour lighting with rich colors',
+      'cool blue tones with modern aesthetic',
+      'playful whimsical style with bright colors'
+    ];
+    
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
       try {
         // Try Pexels first (free API, no key needed)
         const videoClips = await pexelsService.searchVideos(scene.searchQuery);
         
         if (videoClips && videoClips.length > 0) {
+          console.log(`Scene ${i+1}: Using Pexels video`);
           assets.push({
             type: 'video',
             url: videoClips[0].url,
@@ -337,14 +361,18 @@ Return your response in the following JSON format:
         } else {
           // Generate image with DALL-E in correct aspect ratio
           // Ken Burns effect will be applied later in FFmpeg
+          const visualTheme = visualThemes[i % visualThemes.length];
+          console.log(`Scene ${i+1}: Generating DALL-E image with theme "${visualTheme}"`);
+          
           const openai = new OpenAI({ apiKey: openaiKey });
           const imageResponse = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: `High-quality 3D anime style illustration with soft lighting and smooth rendering. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Subject: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Aspect ratio: ${aspectRatio}.`,
+            prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. Aspect ratio: ${aspectRatio}.`,
             n: 1,
             size: imageSize
           });
 
+          console.log(`Scene ${i+1}: Image generated - ${imageResponse.data[0].url.substring(0, 50)}...`);
           assets.push({
             type: 'image',
             url: imageResponse.data[0].url,
@@ -353,7 +381,7 @@ Return your response in the following JSON format:
           });
         }
       } catch (error) {
-        console.error('Error fetching visual asset:', error);
+        console.error(`Scene ${i+1}: Error fetching visual asset:`, error);
         // Continue with next scene
       }
     }
