@@ -90,11 +90,17 @@ class FFmpegService {
 
       console.log(`${logPrefix} Video dimensions: ${width}x${height}`);
 
-      // Calculate timing
+      // Calculate timing with proper buffer to avoid cutting off audio
       const titleDuration = titleBgPath ? 2 : 0; // 2 seconds for title screen if background exists
       const contentDuration = duration;
-      const safetyBuffer = 3;
-      const totalDuration = titleDuration + contentDuration + safetyBuffer;
+      const endBuffer = 3; // Minimum 3 seconds buffer at the end
+      const totalDuration = titleDuration + contentDuration + endBuffer;
+      
+      console.log(`${logPrefix} ⏱️  Timing calculation:`);
+      console.log(`${logPrefix}   - Title duration: ${titleDuration}s`);
+      console.log(`${logPrefix}   - Content duration: ${contentDuration}s`);
+      console.log(`${logPrefix}   - End buffer: ${endBuffer}s`);
+      console.log(`${logPrefix}   - Total video duration: ${totalDuration}s`);
 
       console.log(`${logPrefix} Duration breakdown:`, {
         titleDuration,
@@ -151,7 +157,8 @@ class FFmpegService {
 
     // Create filter complex for FFmpeg
     const imageCount = imagePaths.length;
-    const durationPerImage = (contentDuration + 3) / imageCount; // Add safety buffer to image duration
+    // Extend image duration to cover full audio + buffer
+    const durationPerImage = (contentDuration + 3) / imageCount;
 
     let filterComplex = '';
     let inputs = [];
@@ -197,12 +204,16 @@ class FFmpegService {
     // Split narration text into chunks for subtitle display
     const narrationChunks = this.splitNarrationIntoChunks(narrationText, imageCount);
     
-    // Font settings for narration subtitles
-    const subtitleFontsize = height > 1080 ? 32 : 24;
-    const japaneseFont = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
+    // Font settings for narration subtitles - LARGER and HIGHER position
+    const subtitleFontsize = height > 1080 ? 56 : 42; // Increased from 32/24 to 56/42
+    // Use M+ Rounded font for rounded, friendly appearance
+    const roundedFontPath = path.join(this.tempDir, 'mplus-rounded.ttf');
+    const japaneseFont = fs.existsSync(roundedFontPath) 
+      ? roundedFontPath 
+      : '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc';
     const subtitleFillColor = '0xffffff'; // White text
     const subtitleStrokeColor = '0x000000'; // Black stroke
-    const subtitleStrokeWidth = 3;
+    const subtitleStrokeWidth = 4; // Thicker stroke for better readability
     
     // Add images with subtitle overlays
     for (let i = 0; i < imagePaths.length; i++) {
@@ -219,7 +230,8 @@ class FFmpegService {
         const escapedChunk = this.escapeFFmpegText(chunkText);
         
         filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
-        filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h-${subtitleFontsize*3}:box=1:boxcolor=0x000000@0.5:boxborderw=10,`;
+        // Position subtitle higher: y=h*0.75 (75% down from top) instead of y=h-X (from bottom)
+        filterComplex += `drawtext=text='${escapedChunk}':fontfile=${japaneseFont}:fontsize=${subtitleFontsize}:fontcolor=${subtitleFillColor}:borderw=${subtitleStrokeWidth}:bordercolor=${subtitleStrokeColor}:x=(w-text_w)/2:y=h*0.72:box=1:boxcolor=0x000000@0.6:boxborderw=15,`;
         filterComplex += `setsar=1,fps=30[img${i}];`;
       } else {
         filterComplex += `[${inputIndex}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[img${i}];`;
@@ -355,17 +367,55 @@ class FFmpegService {
     for (let i = 0; i < chunkCount; i++) {
       const start = i * sentencesPerChunk;
       const end = Math.min(start + sentencesPerChunk, fullSentences.length);
-      const chunkText = fullSentences.slice(start, end).join(' ');
+      let chunkText = fullSentences.slice(start, end).join(' ');
       
-      // Limit to 100 characters for readability
-      if (chunkText.length > 100) {
-        chunks.push(chunkText.substring(0, 97) + '...');
-      } else {
-        chunks.push(chunkText);
+      // Split long lines to prevent text overflow
+      // Maximum characters per line: 30 for Japanese (smaller for readability)
+      const maxCharsPerLine = 30;
+      if (chunkText.length > maxCharsPerLine) {
+        // Split into multiple lines at natural break points
+        const lines = this.splitTextIntoLines(chunkText, maxCharsPerLine);
+        chunkText = lines.join('\n');
       }
+      
+      chunks.push(chunkText);
     }
 
     return chunks;
+  }
+
+  splitTextIntoLines(text, maxLength) {
+    const lines = [];
+    let currentLine = '';
+    
+    // Split by natural break points (commas, particles, etc.)
+    const words = text.split(/([、,，\s])/g);
+    
+    for (const word of words) {
+      if ((currentLine + word).length <= maxLength) {
+        currentLine += word;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Word itself is too long, force break
+          lines.push(word.substring(0, maxLength));
+          currentLine = word.substring(maxLength);
+        }
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    // Limit to 3 lines maximum
+    if (lines.length > 3) {
+      return [lines.slice(0, 2).join('\n'), lines.slice(2).join('\n').substring(0, maxLength) + '...'];
+    }
+    
+    return lines;
   }
 
   escapeFFmpegText(text) {
