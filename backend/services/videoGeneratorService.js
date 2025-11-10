@@ -191,8 +191,27 @@ class VideoGeneratorService {
   async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts') {
     const openai = new OpenAI({ apiKey: openaiKey });
 
-    // Calculate approximate word count (average speaking rate: 150 words/minute)
-    const targetWords = Math.floor((duration / 60) * 150);
+    // Calculate precise character/word count based on language and speaking rate
+    // Japanese: ~7-8 characters per second (420-480 chars per minute)
+    // English: ~2.5 words per second (150 words per minute)
+    // Chinese: ~5-6 characters per second (300-360 chars per minute)
+    
+    let targetLength;
+    let lengthUnit;
+    
+    if (language === 'ja') {
+      // Japanese: characters per second
+      targetLength = Math.floor(duration * 7); // Conservative 7 chars/sec
+      lengthUnit = 'characters';
+    } else if (language === 'zh') {
+      // Chinese: characters per second
+      targetLength = Math.floor(duration * 5); // Conservative 5 chars/sec
+      lengthUnit = 'characters';
+    } else {
+      // English: words per second
+      targetLength = Math.floor(duration * 2.3); // Conservative 2.3 words/sec
+      lengthUnit = 'words';
+    }
 
     // Language settings
     const languageSettings = {
@@ -225,13 +244,20 @@ class VideoGeneratorService {
 Background Information:
 ${searchInfo}
 
-Requirements:
-- Target length: approximately ${targetWords} words (for ${duration} seconds)
-- Write in a natural, engaging narrative style
-- Include fascinating facts and details
+CRITICAL REQUIREMENTS - SCRIPT LENGTH:
+- This is for a ${duration}-second video
+- The script MUST be EXACTLY ${targetLength} ${lengthUnit} or LESS
+- Count your ${lengthUnit} carefully before responding
+- If your script is too long, shorten it to fit ${targetLength} ${lengthUnit}
+- DO NOT exceed ${targetLength} ${lengthUnit} under any circumstances
+- Better to be slightly shorter than too long
+
+Additional Requirements:
+- Write in a natural, engaging narrative style suitable for voice narration
+- Include fascinating facts and details, but stay within the length limit
 - Structure the content to flow smoothly
 - ${langSetting.instruction}
-- Make it suitable for voice narration
+- The narration should fill exactly ${duration} seconds when read aloud
 
 Also, suggest EXACTLY ${imageCount} visual scenes that would accompany this narration (1 scene per 2.5 seconds). For each scene, provide:
 1. A brief description (for searching stock footage)
@@ -249,10 +275,15 @@ Return your response in the following JSON format:
   ]
 }`;
 
+    console.log(`📝 Requesting script: ${duration}s video = ${targetLength} ${lengthUnit} maximum`);
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
-        { role: 'system', content: 'You are a professional video script writer. Always respond with valid JSON.' },
+        { 
+          role: 'system', 
+          content: `You are a professional video script writer. Always respond with valid JSON. CRITICAL: You must strictly adhere to the specified script length. Count ${lengthUnit} carefully and ensure the narration does not exceed the maximum length specified.` 
+        },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
@@ -260,6 +291,19 @@ Return your response in the following JSON format:
     });
 
     const result = JSON.parse(response.choices[0].message.content);
+    
+    // Validate and log script length
+    const actualLength = language === 'ja' || language === 'zh' 
+      ? result.narration.length 
+      : result.narration.split(/\s+/).length;
+    
+    console.log(`📊 Script generated: ${actualLength} ${lengthUnit} (target: ${targetLength} ${lengthUnit}, ${duration}s)`);
+    
+    if (actualLength > targetLength * 1.2) {
+      console.warn(`⚠️  WARNING: Script is ${Math.round((actualLength/targetLength - 1) * 100)}% longer than target!`);
+      console.warn(`   This may cause the narration to exceed ${duration} seconds.`);
+    }
+    
     return result;
   }
 

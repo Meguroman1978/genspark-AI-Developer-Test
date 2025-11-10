@@ -105,7 +105,7 @@ class FFmpegService {
       console.log(`${logPrefix} Duration breakdown:`, {
         titleDuration,
         contentDuration,
-        safetyBuffer,
+        endBuffer,
         totalDuration
       });
 
@@ -189,15 +189,39 @@ class FFmpegService {
       const romajiTheme = toRomaji(theme);
       const escapedRomaji = this.escapeFFmpegText(romajiTheme);
       
-      // Add multiple text overlays:
-      // 1. Channel name at top
+      // Add multiple overlays:
+      // 1. Kotowaza logo at top
       // 2. Japanese title in center
       // 3. Romaji subtitle below title
-      filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
-      filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
-      filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
-      filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
-      filterComplex += `setsar=1,fps=30[title];`;
+      
+      // Check if logo exists
+      const logoPath = path.join(__dirname, '../../temp/kotowaza_logo.png');
+      const hasLogo = fs.existsSync(logoPath);
+      
+      if (hasLogo) {
+        // Add logo input
+        inputs.splice(1, 0, `-i "${logoPath}"`);
+        
+        // Overlay logo on title background (logo is now input 1, title bg is input 0)
+        const logoSize = height > 1080 ? 200 : 150; // Large logo size
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[bg];`;
+        filterComplex += `[1:v]scale=${logoSize}:${logoSize}:force_original_aspect_ratio=decrease[logo];`;
+        filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.08[bg_logo];`;
+        
+        // Add text overlays on top of background+logo
+        filterComplex += `[bg_logo]drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
+        filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
+        filterComplex += `setsar=1,fps=30[title];`;
+        
+        videoStartIndex = 2; // Logo takes input index 1
+      } else {
+        // Fallback to text-only title
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
+        filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
+        filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
+        filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
+        filterComplex += `setsar=1,fps=30[title];`;
+      }
       videoStartIndex = 1;
     }
 
