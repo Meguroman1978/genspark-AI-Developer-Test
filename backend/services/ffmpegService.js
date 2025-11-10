@@ -203,8 +203,10 @@ class FFmpegService {
         inputs.push(`-i "${logoPath}"`);
         
         // Overlay logo on title background (title bg is input 0, logo is input 1)
-        const logoSize = height > 1080 ? 200 : 150; // Large logo size
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2[bg];`;
+        // Logo size: 5x larger = 750px for shorts (1080x1920), 1000px for higher res
+        const logoSize = height > 1080 ? 1000 : 750; // MUCH larger logo (5x increase from 150/200)
+        // Scale background with WHITE background color instead of black
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=white[bg];`;
         filterComplex += `[1:v]scale=${logoSize}:${logoSize}:force_original_aspect_ratio=decrease[logo];`;
         filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.08[bg_logo];`;
         
@@ -215,8 +217,8 @@ class FFmpegService {
         
         videoStartIndex = 2; // Title bg (0) + logo (1) = images start at 2
       } else {
-        // Fallback to text-only title
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,`;
+        // Fallback to text-only title with WHITE background
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=white,`;
         filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
         filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
         filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
@@ -290,15 +292,19 @@ class FFmpegService {
       const bgmIndex = audioIndex + 1;
       inputs.push(`-i "${bgmPath}"`);
       
-      // Mix narration (volume boosted) with BGM (reduced volume)
+      // Mix narration (volume boosted) with BGM (reduced volume, with fadeout)
       if (titleBgPath) {
         // Delay narration to start after title screen
         filterComplex += `[${audioIndex}:a]adelay=${titleDuration * 1000}|${titleDuration * 1000},volume=10dB[narration];`;
-        filterComplex += `[${bgmIndex}:a]volume=0.15[bgm];`; // BGM at 15% volume to not interfere with narration
+        // BGM with fadeout in last 2 seconds
+        const fadeoutStart = totalDuration - 2;
+        filterComplex += `[${bgmIndex}:a]volume=0.15,afade=t=out:st=${fadeoutStart}:d=2[bgm];`;
         filterComplex += `[narration][bgm]amix=inputs=2:duration=longest:normalize=0[audio]`;
       } else {
         filterComplex += `[${audioIndex}:a]volume=10dB[narration];`;
-        filterComplex += `[${bgmIndex}:a]volume=0.15[bgm];`;
+        // BGM with fadeout in last 2 seconds
+        const fadeoutStart = totalDuration - 2;
+        filterComplex += `[${bgmIndex}:a]volume=0.15,afade=t=out:st=${fadeoutStart}:d=2[bgm];`;
         filterComplex += `[narration][bgm]amix=inputs=2:duration=longest:normalize=0[audio]`;
       }
     } else {
@@ -479,14 +485,14 @@ class FFmpegService {
     // 1. Backslashes must be escaped first
     // 2. Single quotes need special handling
     // 3. Colons need escaping
-    // 4. Replace problematic characters
+    // 4. Newlines need special handling for multi-line text
     
     return text
       .replace(/\\/g, '\\\\\\\\')           // Escape backslashes
       .replace(/'/g, "'\\\\\\\\\\\\''")     // Escape single quotes (complex due to shell + FFmpeg)
       .replace(/"/g, '\\\\"')               // Escape double quotes
       .replace(/:/g, '\\:')                 // Escape colons
-      .replace(/\n/g, ' ')                  // Replace newlines with spaces
+      .replace(/\n/g, '\\n')                // Convert newlines to FFmpeg newline sequence
       .replace(/\r/g, '')                   // Remove carriage returns
       .replace(/\[/g, '\\[')                // Escape square brackets
       .replace(/\]/g, '\\]')                // Escape square brackets
