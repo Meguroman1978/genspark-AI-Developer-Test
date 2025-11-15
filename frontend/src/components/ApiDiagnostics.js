@@ -199,6 +199,34 @@ function ApiDiagnostics() {
             </div>
           )}
 
+          {results.fal_ai && (
+            <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.fal_ai.status)}` }}>
+              <div className="diagnostic-header">
+                <span className="diagnostic-icon">{getStatusIcon(results.fal_ai.status)}</span>
+                <span className="diagnostic-name">FAL AI API</span>
+                <span className="diagnostic-status" style={{ color: getStatusColor(results.fal_ai.status) }}>
+                  {results.fal_ai.status === 'success' ? '正常' : 'エラー'}
+                </span>
+              </div>
+              <div className="diagnostic-details">
+                <p><strong>メッセージ:</strong> {results.fal_ai.message}</p>
+                {results.fal_ai.details && (
+                  <div className="detail-section">
+                    <p><strong>詳細:</strong></p>
+                    <p className="detail-text">{results.fal_ai.details}</p>
+                  </div>
+                )}
+                {results.fal_ai.solution && (
+                  <div className="solution-section">
+                    <p><strong>📋 対応方法:</strong></p>
+                    <pre className="solution-text">{results.fal_ai.solution}</pre>
+                  </div>
+                )}
+                {results.fal_ai.error && <p className="error-detail">技術的エラー: {results.fal_ai.error}</p>}
+              </div>
+            </div>
+          )}
+
           {results.youtube && (
             <div className="diagnostic-card" style={{ borderLeft: `4px solid ${getStatusColor(results.youtube.status)}` }}>
               <div className="diagnostic-header">
@@ -227,7 +255,7 @@ function ApiDiagnostics() {
             </div>
           )}
 
-          {!results.openai && !results.elevenlabs && !results.creatomate && !results.stability_ai && !results.youtube && (
+          {!results.openai && !results.elevenlabs && !results.creatomate && !results.stability_ai && !results.fal_ai && !results.youtube && (
             <div className="no-keys-message">
               <p>⚠️ APIキーが設定されていません。「⚙️ 設定」タブでAPIキーを入力してください。</p>
             </div>
@@ -240,6 +268,7 @@ function ApiDiagnostics() {
         <ul>
           <li><strong>OpenAI:</strong> GPT-4 APIへの接続とモデルリスト取得をテストします</li>
           <li><strong>ElevenLabs:</strong> 音声合成APIへの接続とユーザー情報取得をテストします</li>
+          <li><strong>FAL AI:</strong> 画像生成APIへの接続とモデルリスト取得をテストします</li>
           <li><strong>Creatomate:</strong> 動画編集APIへの接続とテンプレートリスト取得をテストします</li>
           <li><strong>Stability AI:</strong> 画像生成APIへの接続とアカウント情報取得をテストします</li>
           <li><strong>YouTube:</strong> OAuth認証情報の有効性とチャンネル情報取得をテストします</li>

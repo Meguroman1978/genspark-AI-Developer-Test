@@ -10,7 +10,7 @@ router.post('/diagnose', async (req, res) => {
 
   // Get API keys
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, stability_ai_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     async (err, keys) => {
       if (err || !keys) {
@@ -31,6 +31,13 @@ router.post('/diagnose', async (req, res) => {
         results.elevenlabs = await testElevenLabs(keys.elevenlabs_key);
       } else {
         results.elevenlabs = { status: 'not_configured', message: 'API key not set' };
+      }
+
+      // Test FAL AI
+      if (keys.fal_ai_key) {
+        results.fal_ai = await testFalAI(keys.fal_ai_key);
+      } else {
+        results.fal_ai = { status: 'not_configured', message: 'API key not set' };
       }
 
       // Test Creatomate
@@ -759,6 +766,76 @@ async function testYouTube(credentials) {
       solution: errorSolution.join('\n'),
       error: error.message,
       code: error.code
+    };
+  }
+}
+
+async function testFalAI(apiKey) {
+  try {
+    // Test with a simple image generation endpoint
+    const response = await axios.get('https://fal.run/fal-ai/flux/dev', {
+      headers: {
+        'Authorization': `Key ${apiKey}`
+      },
+      timeout: 10000
+    });
+    
+    return {
+      status: 'success',
+      message: '✅ FAL AI APIが正常に動作しています',
+      details: '11種類のtext-to-imageモデルが利用可能です',
+      solution: '低コスト（$0.025-0.08/枚）で高品質な画像生成が可能です。DALL-E 3の代替として推奨されます。'
+    };
+  } catch (error) {
+    let errorMessage = '';
+    let errorDetails = '';
+    let errorSolution = [];
+
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      errorMessage = '❌ FAL AI APIキーが無効です';
+      errorDetails = '入力されたAPIキーでは認証できませんでした。';
+      errorSolution = [
+        '対応方法:',
+        '1. FAL AI (https://fal.ai/dashboard/keys) にログイン',
+        '2. 「API Keys」セクションでキーを確認または新規作成',
+        '3. キーは "Key " プレフィックスなしでコピー',
+        '4. コピーしたAPIキーを設定画面に貼り付け',
+        '',
+        '✨ FAL AIの利点:',
+        '• DALL-E 3より安価（$0.025-0.08/枚 vs $0.04-0.08/枚）',
+        '• 豊富なモデル選択（FLUX, Imagen 4, Nano Banana など）',
+        '• 高速生成とレスポンス',
+        '• 使用量ベースの透明な料金体系'
+      ];
+    } else if (error.response?.status === 429) {
+      errorMessage = '❌ APIリクエスト制限に達しました';
+      errorDetails = 'レート制限またはクォータ超過が発生しています。';
+      errorSolution = [
+        '対応方法:',
+        '1. FAL AIアカウントの使用量を確認',
+        '2. しばらく時間をおいてから再試行',
+        '3. 必要に応じてプランをアップグレード'
+      ];
+    } else {
+      errorMessage = `❌ FAL AI API接続エラー`;
+      errorDetails = error.message;
+      errorSolution = [
+        '対応方法:',
+        '1. APIキーが正しく入力されているか確認',
+        '2. インターネット接続を確認',
+        '3. しばらく時間をおいてから再試行',
+        '',
+        `詳細エラー: ${error.message}`
+      ];
+    }
+
+    return {
+      status: 'error',
+      message: errorMessage,
+      details: errorDetails,
+      solution: errorSolution.join('\n'),
+      error: error.message,
+      code: error.response?.status
     };
   }
 }

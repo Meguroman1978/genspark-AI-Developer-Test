@@ -7,7 +7,7 @@ router.get('/', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -19,6 +19,7 @@ router.get('/', async (req, res) => {
         return res.json({
           openai_key: '',
           elevenlabs_key: '',
+          fal_ai_key: '',
           creatomate_key: '',
           creatomate_template_id: '',
           creatomate_public_token: '',
@@ -37,6 +38,7 @@ router.get('/', async (req, res) => {
       res.json({
         openai_key: maskKey(row.openai_key),
         elevenlabs_key: maskKey(row.elevenlabs_key),
+        fal_ai_key: maskKey(row.fal_ai_key),
         creatomate_key: maskKey(row.creatomate_key),
         creatomate_template_id: row.creatomate_template_id || '',
         creatomate_public_token: maskKey(row.creatomate_public_token),
@@ -51,7 +53,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key,
+  const { openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key,
           youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri } = req.body;
   
   // Build YouTube credentials JSON from individual fields if provided
@@ -86,6 +88,7 @@ router.post('/', async (req, res) => {
           `UPDATE api_keys SET 
             openai_key = COALESCE(?, openai_key),
             elevenlabs_key = COALESCE(?, elevenlabs_key),
+            fal_ai_key = COALESCE(?, fal_ai_key),
             creatomate_key = COALESCE(?, creatomate_key),
             creatomate_template_id = COALESCE(?, creatomate_template_id),
             creatomate_public_token = COALESCE(?, creatomate_public_token),
@@ -94,7 +97,7 @@ router.post('/', async (req, res) => {
             youtube_credentials = COALESCE(?, youtube_credentials),
             updated_at = ?
           WHERE user_id = ?`,
-          [openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, userId],
+          [openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, userId],
           (err) => {
             if (err) {
               console.error('Error updating API keys:', err);
@@ -106,9 +109,9 @@ router.post('/', async (req, res) => {
       } else {
         // Insert new keys
         db.run(
-          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [userId, openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, now],
+          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, now],
           (err) => {
             if (err) {
               console.error('Error inserting API keys:', err);
@@ -128,7 +131,7 @@ router.get('/actual', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -143,6 +146,7 @@ router.get('/actual', async (req, res) => {
       res.json({
         openai_key: row.openai_key,
         elevenlabs_key: row.elevenlabs_key,
+        fal_ai_key: row.fal_ai_key,
         creatomate_key: row.creatomate_key,
         creatomate_template_id: row.creatomate_template_id,
         creatomate_public_token: row.creatomate_public_token,

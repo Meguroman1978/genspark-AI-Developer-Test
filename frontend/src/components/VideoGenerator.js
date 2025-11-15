@@ -13,8 +13,9 @@ function VideoGenerator({ apiKeysConfigured }) {
     language: 'ja',
     thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
-    videoService: 'ffmpeg',  // 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更
-    visualMode: 'ken-burns'  // 'static' (静止画), or 'ken-burns' (動きのあるアニメーション)
+    videoService: 'fal-ai',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをfal-aiに変更
+    falAiModel: 'fal-ai/flux/dev',  // FAL AI model selection
+    visualMode: 'crossfade'  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -285,8 +286,8 @@ function VideoGenerator({ apiKeysConfigured }) {
 
           <div className="form-group">
             <label htmlFor="videoService">
-              動画生成サービス
-              <span className="help-text">使用する動画編集サービスを選択</span>
+              画像生成サービス
+              <span className="help-text">使用する画像生成AIを選択</span>
             </label>
             <select
               id="videoService"
@@ -296,11 +297,48 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="creatomate">🎬 Creatomate (有料推奨)</option>
-              <option value="ffmpeg">🆓 FFmpeg (完全無料・ローカル処理)</option>
-              <option value="shotstack">⚡ Shotstack (月20回まで無料)</option>
+              <option value="fal-ai">✨ FAL AI (推奨・低コスト)</option>
+              <option value="ffmpeg">🖼️ DALL-E 3 + FFmpeg</option>
+              <option value="creatomate">🎬 Creatomate (有料)</option>
+              <option value="shotstack">⚡ Shotstack (月20回無料)</option>
             </select>
           </div>
+          
+          {formData.videoService === 'fal-ai' && (
+            <div className="form-group">
+              <label htmlFor="falAiModel">
+                FAL AIモデル選択
+                <span className="help-text">画像生成モデルとコスト</span>
+              </label>
+              <select
+                id="falAiModel"
+                name="falAiModel"
+                value={formData.falAiModel}
+                onChange={handleChange}
+                className="form-input"
+                disabled={loading}
+              >
+                <optgroup label="推奨モデル（高品質・コスパ良好）">
+                  <option value="fal-ai/flux/dev">FLUX.1 [dev] - $0.025/MP (推奨)</option>
+                  <option value="fal-ai/imagen4/preview/fast">Imagen 4 Fast - $0.04/枚 (高速)</option>
+                  <option value="fal-ai/imagen4/preview">Imagen 4 Standard - $0.05/枚</option>
+                  <option value="fal-ai/nano-banana">Nano Banana (Gemini 2.5) - $0.04/枚</option>
+                </optgroup>
+                <optgroup label="その他のモデル">
+                  <option value="fal-ai/flux-pro">FLUX.1 Pro - $0.05/枚 (最高品質)</option>
+                  <option value="fal-ai/imagen4/preview/ultra">Imagen 4 Ultra - $0.06/枚</option>
+                  <option value="fal-ai/recraft/v3/text-to-image">Recraft V3 - $0.04/枚</option>
+                  <option value="fal-ai/wan-25-preview/text-to-image">Wan 2.5 - $0.05/枚</option>
+                  <option value="fal-ai/reve/text-to-image">Reve - $0.04/枚</option>
+                  <option value="fal-ai/ideogram/V_3">Ideogram V3 - $0.08/枚</option>
+                  <option value="fal-ai/qwen-image">Qwen Image - $0.03/枚 (中国語特化)</option>
+                </optgroup>
+              </select>
+              <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e8f5e9', borderRadius: '8px', fontSize: '0.9em'}}>
+                <strong>💰 コスト例:</strong> 6枚の画像生成で約$0.15-0.48（モデルによる）
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="form-row">

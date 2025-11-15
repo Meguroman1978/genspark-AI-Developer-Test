@@ -5,6 +5,7 @@ function ApiKeysSettings({ onSaved }) {
   const [formData, setFormData] = useState({
     openai_key: '',
     elevenlabs_key: '',
+    fal_ai_key: '',  // NEW: FAL AI API key
     creatomate_key: '',
     creatomate_template_id: '',
     creatomate_public_token: '',
@@ -83,6 +84,7 @@ function ApiKeysSettings({ onSaved }) {
         setFormData({
           openai_key: '',
           elevenlabs_key: '',
+          fal_ai_key: '',
           creatomate_key: '',
           creatomate_template_id: '',
           creatomate_public_token: '',
@@ -164,6 +166,33 @@ function ApiKeysSettings({ onSaved }) {
           >
             → ElevenLabs APIキーを取得
           </a>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="fal_ai_key">
+            FAL AI API Key
+            <span className="help-text">（推奨）低コストで高品質な画像生成（DALL-E 3の代替）</span>
+          </label>
+          <input
+            type="password"
+            id="fal_ai_key"
+            name="fal_ai_key"
+            value={formData.fal_ai_key}
+            onChange={handleChange}
+            placeholder="..."
+            className="form-input"
+          />
+          <a 
+            href="https://fal.ai/dashboard/keys" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="get-key-link"
+          >
+            → FAL AI APIキーを取得
+          </a>
+          <span className="help-text">
+            ✨ FAL AIの利点: DALL-E 3より安価（$0.025-0.06/枚）、豊富なモデル選択、高速生成
+          </span>
         </div>
 
         <div className="form-group">

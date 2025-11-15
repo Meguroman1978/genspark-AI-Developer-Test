@@ -108,6 +108,11 @@ function initializeDatabase() {
           console.error('Error adding youtube_redirect_uri column:', err.message);
         }
       });
+      db.run(`ALTER TABLE api_keys ADD COLUMN fal_ai_key TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding fal_ai_key column:', err.message);
+        }
+      });
     }
   });
 
