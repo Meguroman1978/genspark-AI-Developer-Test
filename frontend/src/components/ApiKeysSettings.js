@@ -179,7 +179,7 @@ function ApiKeysSettings({ onSaved }) {
             name="fal_ai_key"
             value={formData.fal_ai_key}
             onChange={handleChange}
-            placeholder="..."
+            placeholder="user_id:password 形式（例: 6932fae0-...:33cdd595...）"
             className="form-input"
           />
           <a 
@@ -190,7 +190,10 @@ function ApiKeysSettings({ onSaved }) {
           >
             → FAL AI APIキーを取得
           </a>
-          <span className="help-text">
+          <span className="help-text" style={{display: 'block', marginTop: '8px', padding: '12px', backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffc107'}}>
+            <strong>🔑 重要：</strong> FAL AI APIキーは <code>user_id:password</code> 形式です。<br/>
+            例: <code>6932fae0-a856-4fa4-9daf-4bcbf9cfeef0:33cdd595d45d69b420a993e4ca5ac1d0</code><br/>
+            <strong>コロン(:)を含む全体を1つの塊</strong>としてコピー＆ペーストしてください。<br/>
             ✨ FAL AIの利点: DALL-E 3より安価（$0.025-0.06/枚）、豊富なモデル選択、高速生成
           </span>
         </div>
