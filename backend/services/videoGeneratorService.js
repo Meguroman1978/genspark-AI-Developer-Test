@@ -5,11 +5,12 @@ const elevenlabsService = require('./elevenlabsService');
 const creatomateService = require('./creatomateService');
 const youtubeService = require('./youtubeService');
 const pexelsService = require('./pexelsService');
+const falAiService = require('./falAiService');
 const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, keys, db } = config;
+    const { jobId, theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, bgmTrack, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -52,7 +53,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Preparing visual assets...');
       console.log(`[Job ${jobId}] Fetching visual assets`);
       
-      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration, visualMode, keys.stabilityAiKey, jobId);
+      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration, visualMode, keys.stabilityAiKey, jobId, keys.falAiKey);
       console.log(`[Job ${jobId}] Visual assets prepared: ${visualAssets.length} assets`);
       
       // Store visual assets URLs
@@ -70,7 +71,8 @@ class VideoGeneratorService {
       }
 
       // Step 5: Create Final Video with selected service
-      const selectedService = videoService || 'creatomate'; // Default to Creatomate
+      // Note: 'fal-ai' is for image generation, video is always created with FFmpeg
+      const selectedService = videoService || 'ffmpeg'; // Default to FFmpeg (was creatomate)
       await this.updateProgress(db, jobId, `Creating final video with ${selectedService}...`);
       console.log(`[Job ${jobId}] Creating video with ${selectedService}`);
       
@@ -87,8 +89,12 @@ class VideoGeneratorService {
       
       let videoUrl;
       
-      // Set BGM URL (use default BGM stored in temp directory)
-      const bgmUrl = `${publicUrl}/temp/bgm_default.mp3`;
+      // Set BGM path (use selected BGM track or default)
+      const path = require('path');
+      const selectedBgm = bgmTrack || '陽だまりのリズム.mp3';
+      const bgmPath = path.join(__dirname, '../assets/bgm', selectedBgm);
+      console.log(`[Job ${jobId}] Using BGM track: ${selectedBgm}`);
+      console.log(`[Job ${jobId}] BGM path: ${bgmPath}`);
       
       const videoConfig = {
         audioUrl,
@@ -100,15 +106,19 @@ class VideoGeneratorService {
         language,
         thumbnailBackground,
         videoFormat,
-        bgmUrl,
+        bgmPath,  // Changed from bgmUrl to bgmPath (local file path)
         narrationText: script.narration,  // Add narration text for subtitles
         visualMode: visualMode || 'static',  // Pass visual mode to FFmpeg service
         jobId
       };
 
       // Select and call appropriate video service
-      if (selectedService === 'ffmpeg') {
-        console.log(`[Job ${jobId}] Using FFmpeg (FREE)`);
+      // Note: 'fal-ai' uses FFmpeg for video creation (FAL AI is only for image generation)
+      if (selectedService === 'ffmpeg' || selectedService === 'fal-ai') {
+        console.log(`[Job ${jobId}] Using FFmpeg (FREE) for video composition`);
+        if (selectedService === 'fal-ai') {
+          console.log(`[Job ${jobId}] Note: FAL AI images + FFmpeg video composition`);
+        }
         const ffmpegService = require('./ffmpegService');
         videoUrl = await ffmpegService.createVideo(videoConfig);
       } else if (selectedService === 'shotstack') {
@@ -256,10 +266,15 @@ class VideoGeneratorService {
     // Calculate number of images needed (1 image per 2.5 seconds)
     const imageCount = Math.ceil(duration / 2.5);
     
+    // Build reference content section if available
+    const referenceSection = referenceContent 
+      ? `\n\nReference Material (use this information to inform your script):\n${referenceContent}\n` 
+      : '';
+    
     const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".${typeInstruction}
 
 Background Information:
-${searchInfo}
+${searchInfo}${referenceSection}
 
 CRITICAL REQUIREMENTS - SCRIPT LENGTH:
 - This is for a ${duration}-second video
@@ -336,58 +351,109 @@ Return your response in the following JSON format:
     return result;
   }
 
-  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10, visualMode = 'ken-burns', stabilityAiKey = null, jobId = null) {
+  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10, visualMode = 'ken-burns', stabilityAiKey = null, jobId = null, falAiKey = null) {
     const assets = [];
     
-    // Determine image size and aspect ratio based on video format
-    // CRITICAL: Must match video dimensions exactly to avoid black bars
-    // Shorts (9:16 vertical): 1024x1792
-    // Normal (16:9 horizontal): 1792x1024
-    const imageSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+    // CRITICAL: Use EXACT pixel dimensions for video output
+    // Shorts (9:16 vertical): 1080x1920 pixels
+    // Normal (16:9 horizontal): 1920x1080 pixels
+    const imageWidth = videoFormat === 'shorts' ? 1080 : 1920;
+    const imageHeight = videoFormat === 'shorts' ? 1920 : 1080;
     const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical portrait' : '16:9 horizontal landscape';
     
-    console.log(`Visual mode: ${visualMode} (Ken Burns効果で動きを追加)`);
-    console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageSize})`);
+    console.log(`Visual mode: ${visualMode}`);
+    console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageWidth}x${imageHeight})`);
 
-    // Generate DALL-E images with Ken Burns effect applied in FFmpeg
-    console.log('🎬 Using DALL-E Images with Ken Burns Animation Effect');
+    // Decide which image generation service to use
+    const useFalAi = falAiKey && falAiKey.trim() !== '';
     
-    // Visual variety themes to ensure each slide looks different
-    const visualThemes = [
-      'vibrant colorful scene with dynamic composition',
-      'serene peaceful atmosphere with soft pastel colors',
-      'dramatic lighting with strong contrasts and shadows',
-      'warm golden hour lighting with rich colors',
-      'cool blue tones with modern aesthetic',
-      'playful whimsical style with bright colors'
-    ];
-    
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      try {
-        // Generate image with DALL-E in correct aspect ratio
-        // Ken Burns effect will be applied later in FFmpeg (if visualMode is ken-burns)
-        const visualTheme = visualThemes[i % visualThemes.length];
-        console.log(`Scene ${i+1}/${scenes.length}: Generating DALL-E image with theme "${visualTheme}"`);
-        
-        const openai = new OpenAI({ apiKey: openaiKey });
-        const imageResponse = await openai.images.generate({
-          model: 'dall-e-3',
-          prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. IMPORTANT: Create image in ${aspectRatio} format that fills the entire frame.`,
-          n: 1,
-          size: imageSize
-        });
+    if (useFalAi) {
+      console.log('🎨 Using FAL AI for image generation with exact dimensions');
+      
+      // Visual variety themes to ensure each slide looks different
+      const visualThemes = [
+        'vibrant colorful scene with dynamic composition',
+        'serene peaceful atmosphere with soft pastel colors',
+        'dramatic lighting with strong contrasts and shadows',
+        'warm golden hour lighting with rich colors',
+        'cool blue tones with modern aesthetic',
+        'playful whimsical style with bright colors'
+      ];
+      
+      // Use FAL AI default model (flux-pro/v1.1)
+      const falModelId = 'fal-ai/flux-pro/v1.1';
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        try {
+          const visualTheme = visualThemes[i % visualThemes.length];
+          console.log(`Scene ${i+1}/${scenes.length}: Generating FAL AI image with theme "${visualTheme}"`);
+          
+          const result = await falAiService.generateImage({
+            modelId: falModelId,
+            prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. IMPORTANT: Create image in ${aspectRatio} format that fills the entire frame.`,
+            imageSize: { width: imageWidth, height: imageHeight },
+            numImages: 1
+          });
 
-        console.log(`Scene ${i+1}/${scenes.length}: Image generated successfully`);
-        assets.push({
-          type: 'image',
-          url: imageResponse.data[0].url,
-          description: scene.description,
-          timing: scene.timing
-        });
-      } catch (error) {
-        console.error(`Scene ${i+1}/${scenes.length}: Error generating image:`, error.message);
-        // Continue with next scene even if one fails
+          if (result.success && result.images.length > 0) {
+            console.log(`Scene ${i+1}/${scenes.length}: FAL AI image generated successfully (${result.images[0].width}x${result.images[0].height})`);
+            assets.push({
+              type: 'image',
+              url: result.images[0].url,
+              description: scene.description,
+              timing: scene.timing
+            });
+          } else {
+            throw new Error('FAL AI returned no images');
+          }
+        } catch (error) {
+          console.error(`Scene ${i+1}/${scenes.length}: Error generating FAL AI image:`, error.message);
+          // Continue with next scene even if one fails
+        }
+      }
+    } else {
+      console.log('🎬 Using DALL-E 3 for image generation (fallback)');
+      console.log('⚠️  Note: DALL-E 3 may generate incorrect aspect ratios. Consider using FAL AI for reliable dimensions.');
+      
+      // DALL-E 3 fallback - uses fixed sizes (may not always honor aspect ratio)
+      const dalleSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+      
+      // Visual variety themes
+      const visualThemes = [
+        'vibrant colorful scene with dynamic composition',
+        'serene peaceful atmosphere with soft pastel colors',
+        'dramatic lighting with strong contrasts and shadows',
+        'warm golden hour lighting with rich colors',
+        'cool blue tones with modern aesthetic',
+        'playful whimsical style with bright colors'
+      ];
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        try {
+          const visualTheme = visualThemes[i % visualThemes.length];
+          console.log(`Scene ${i+1}/${scenes.length}: Generating DALL-E 3 image with theme "${visualTheme}"`);
+          
+          const openai = new OpenAI({ apiKey: openaiKey });
+          const imageResponse = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. IMPORTANT: Create image in ${aspectRatio} format that fills the entire frame.`,
+            n: 1,
+            size: dalleSize
+          });
+
+          console.log(`Scene ${i+1}/${scenes.length}: DALL-E 3 image generated successfully`);
+          assets.push({
+            type: 'image',
+            url: imageResponse.data[0].url,
+            description: scene.description,
+            timing: scene.timing
+          });
+        } catch (error) {
+          console.error(`Scene ${i+1}/${scenes.length}: Error generating DALL-E 3 image:`, error.message);
+          // Continue with next scene even if one fails
+        }
       }
     }
 
