@@ -324,10 +324,11 @@ Return your response in the following JSON format:
     const assets = [];
     
     // Determine image size and aspect ratio based on video format
-    // Shorts (9:16): 1024x1792 (vertical)
-    // Normal (16:9): 1792x1024 (horizontal)
+    // CRITICAL: Must match video dimensions exactly to avoid black bars
+    // Shorts (9:16 vertical): 1024x1792
+    // Normal (16:9 horizontal): 1792x1024
     const imageSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
-    const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical' : '16:9 horizontal';
+    const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical portrait' : '16:9 horizontal landscape';
     
     console.log(`Visual mode: ${visualMode} (Ken Burns効果で動きを追加)`);
     console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageSize})`);
@@ -356,7 +357,7 @@ Return your response in the following JSON format:
         const openai = new OpenAI({ apiKey: openaiKey });
         const imageResponse = await openai.images.generate({
           model: 'dall-e-3',
-          prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. Aspect ratio: ${aspectRatio}.`,
+          prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. IMPORTANT: Create image in ${aspectRatio} format that fills the entire frame.`,
           n: 1,
           size: imageSize
         });

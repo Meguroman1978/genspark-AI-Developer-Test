@@ -210,8 +210,8 @@ class FFmpegService {
         // Overlay logo on title background (title bg is input 0, logo is input 1)
         // Logo size: Half of 5x = 2.5x = 375px for shorts, 500px for higher res
         const logoSize = height > 1080 ? 500 : 375; // Half the previous size (was 1000/750)
-        // Scale background with LOGO BACKGROUND COLOR (#F5E6D3 - warm beige)
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=#F5E6D3[bg];`;
+        // Scale background to exact dimensions, fill screen completely (no black bars)
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},drawbox=color=#F5E6D3:t=fill[bg];`;
         filterComplex += `[1:v]scale=${logoSize}:${logoSize}:force_original_aspect_ratio=decrease[logo];`;
         // Move logo to top: Y position from H*0.08 to H*0.05 (higher up)
         filterComplex += `[bg][logo]overlay=(W-w)/2:H*0.05[bg_logo];`;
@@ -224,7 +224,8 @@ class FFmpegService {
         videoStartIndex = 2; // Title bg (0) + logo (1) = images start at 2
       } else {
         // Fallback to text-only title with LOGO BACKGROUND COLOR (#F5E6D3)
-        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=#F5E6D3,`;
+        // Force exact dimensions to fill entire screen
+        filterComplex += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},drawbox=color=#F5E6D3:t=fill,`;
         filterComplex += `drawtext=text='${escapedChannel}':fontfile=${englishFont}:fontsize=${channelFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=h*0.1,`;
         filterComplex += `drawtext=text='${escapedTheme}':fontfile=${japaneseFont}:fontsize=${titleFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h-text_h)/2-${romajiFontsize},`;
         filterComplex += `drawtext=text='${escapedRomaji}':fontfile=${englishFont}:fontsize=${romajiFontsize}:fontcolor=${fillColor}:borderw=${strokeWidth}:bordercolor=${strokeColor}:x=(w-text_w)/2:y=(h+text_h)/2+${romajiFontsize*0.5},`;
@@ -274,10 +275,12 @@ class FFmpegService {
         // Crossfade + Zoom effect: gentle zoom with smooth transitions
         const frameDuration = Math.floor(durationPerImage * 30);
         // Simple zoom in effect (1.0 to 1.08 scale over duration)
-        imageFilter = `scale=${width * 1.15}:${height * 1.15}:force_original_aspect_ratio=decrease,zoompan=z='min(1.0+on*0.0008,1.08)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+        // Force exact size to match output dimensions (no aspect ratio preservation to avoid black bars)
+        imageFilter = `scale=${width * 1.15}:${height * 1.15}:force_original_aspect_ratio=increase,crop=${width * 1.15}:${height * 1.15},zoompan=z='min(1.0+on*0.0008,1.08)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
       } else {
-        // Static image mode: simple scale and pad
-        imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
+        // Static image mode: force exact size to fill screen completely
+        // Use crop to ensure image fills entire frame without black bars
+        imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
       }
       
       if (chunkText) {
