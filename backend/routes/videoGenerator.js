@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode } = req.body;
+  const { theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, bgmTrack } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -68,6 +68,7 @@ router.post('/generate', async (req, res) => {
             videoFormat: videoFormat || 'normal',  // 'normal' (16:9) or 'shorts' (9:16)
             videoService: videoService || 'creatomate',  // 'creatomate', 'ffmpeg', or 'shotstack'
             visualMode: visualMode || 'images',  // 'images' (DALL-E) or 'stability-video' (Stability AI)
+            bgmTrack: bgmTrack || '陽だまりのリズム.mp3',  // BGM選択（デフォルト: 陽だまりのリズム）
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,

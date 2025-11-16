@@ -16,7 +16,7 @@ class FFmpegService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl, narrationText, visualMode } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, publicUrl, language, thumbnailBackground, videoFormat, jobId, bgmUrl, bgmPath: configBgmPath, narrationText, visualMode } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[FFmpeg]';
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
@@ -32,21 +32,22 @@ class FFmpegService {
       const audioPath = await this.downloadFile(audioUrl, 'audio.mp3');
       console.log(`${logPrefix} ✅ Audio downloaded: ${audioPath}`);
 
-      // Download BGM if provided (default BGM always used)
+      // Handle BGM: use configBgmPath (local file from assets/bgm) or bgmUrl (remote file)
       let bgmPath = null;
-      if (bgmUrl) {
-        console.log(`${logPrefix} Downloading custom BGM...`);
+      if (configBgmPath && fs.existsSync(configBgmPath)) {
+        // Use provided local BGM path (from backend/assets/bgm directory)
+        bgmPath = configBgmPath;
+        console.log(`${logPrefix} 🎵 Using BGM track: ${path.basename(bgmPath)}`);
+      } else if (bgmUrl) {
+        // Download BGM from URL (legacy support)
+        console.log(`${logPrefix} Downloading custom BGM from URL...`);
         bgmPath = await this.downloadFile(bgmUrl, 'bgm_custom.mp3');
         console.log(`${logPrefix} ✅ Custom BGM downloaded`);
       } else {
-        // Use default BGM
-        bgmPath = path.join(this.tempDir, 'bgm_default.mp3');
-        if (fs.existsSync(bgmPath)) {
-          console.log(`${logPrefix} Using default BGM`);
-        } else {
-          console.log(`${logPrefix} ⚠️ Default BGM not found, skipping BGM`);
-          bgmPath = null;
-        }
+        // No BGM provided - this should not happen with new system
+        console.error(`${logPrefix} ❌ ERROR: No BGM path provided! Expected bgmPath in config.`);
+        console.log(`${logPrefix} ⚠️ Video will be created without background music`);
+        bgmPath = null;
       }
 
       // Download images (filter out Pexels videos for now, focus on DALL-E images)
@@ -143,9 +144,10 @@ class FFmpegService {
       const videoUrl = `${publicUrl}/temp/${path.basename(outputPath)}`;
       console.log(`${logPrefix} ✅ Video URL: ${videoUrl}`);
 
-      // Cleanup downloaded files (keep bgm_default.mp3, only clean custom BGM)
+      // Cleanup downloaded files (keep local BGM files from assets/bgm directory)
       const filesToClean = [audioPath, ...imagePaths, titleBgPath];
-      if (bgmPath && bgmPath.includes('bgm_custom')) {
+      // Only clean downloaded BGM files (not local assets)
+      if (bgmPath && (bgmPath.includes('bgm_custom') || bgmPath.includes(this.tempDir))) {
         filesToClean.push(bgmPath);
       }
       this.cleanupFiles(filesToClean);
@@ -275,12 +277,16 @@ class FFmpegService {
         // Crossfade + Zoom effect: gentle zoom with smooth transitions
         const frameDuration = Math.floor(durationPerImage * 30);
         // Simple zoom in effect (1.0 to 1.08 scale over duration)
-        // Force exact size to match output dimensions (no aspect ratio preservation to avoid black bars)
-        imageFilter = `scale=${width * 1.15}:${height * 1.15}:force_original_aspect_ratio=increase,crop=${width * 1.15}:${height * 1.15},zoompan=z='min(1.0+on*0.0008,1.08)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+        // CRITICAL: Must output EXACTLY ${width}x${height} to avoid black bars
+        // Step 1: Scale to slightly larger size, preserving aspect ratio
+        // Step 2: Crop to exact dimensions
+        // Step 3: Apply zoom effect with exact output size
+        imageFilter = `scale=${width * 1.15}:${height * 1.15}:force_original_aspect_ratio=increase,crop=${width * 1.15}:${height * 1.15},zoompan=z='min(1.0+on*0.0008,1.08)':d=${frameDuration}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height},scale=${width}:${height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
       } else {
         // Static image mode: force exact size to fill screen completely
-        // Use crop to ensure image fills entire frame without black bars
-        imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+        // CRITICAL: Must output EXACTLY ${width}x${height} to avoid black bars
+        // Use increase + crop to fill frame completely, then ensure exact dimensions
+        imageFilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},scale=${width}:${height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
       }
       
       if (chunkText) {
@@ -371,17 +377,19 @@ class FFmpegService {
       }
     }
 
-    // Build FFmpeg command with explicit output dimensions
+    // Build FFmpeg command - dimensions are enforced in filter chain
+    // CRITICAL: Output dimensions MUST be exactly ${width}x${height}
+    // The filter chain now ensures exact output size, so we don't need -s flag
     const ffmpegCommand = `ffmpeg ${inputs.join(' ')} \
       -filter_complex "${filterComplex}" \
       -map "[video]" -map "[audio]" \
-      -s ${width}x${height} \
-      -c:v libx264 -preset fast -crf 22 \
+      -c:v libx264 -preset fast -crf 22 -pix_fmt yuv420p \
       -c:a aac -b:a 192k \
       -t ${totalDuration} \
       -y "${outputPath}"`;
 
     console.log(`${logPrefix} Executing FFmpeg command...`);
+    console.log(`${logPrefix} Expected output dimensions: ${width}x${height}`);
     console.log(`${logPrefix} Command preview: ffmpeg [${inputs.length} inputs] -filter_complex [...] -t ${totalDuration} "${outputPath}"`);
 
     try {
@@ -394,6 +402,21 @@ class FFmpegService {
       }
       
       console.log(`${logPrefix} ✅ FFmpeg execution completed`);
+      
+      // Verify output dimensions
+      try {
+        const { stdout: probeOutput } = await execPromise(`ffprobe -v quiet -print_format json -show_streams "${outputPath}"`);
+        const probeData = JSON.parse(probeOutput);
+        const videoStream = probeData.streams.find(s => s.codec_type === 'video');
+        if (videoStream) {
+          console.log(`${logPrefix} 🎬 Video output verified: ${videoStream.width}x${videoStream.height}`);
+          if (videoStream.width !== width || videoStream.height !== height) {
+            console.error(`${logPrefix} ⚠️  WARNING: Output dimensions ${videoStream.width}x${videoStream.height} do not match expected ${width}x${height}!`);
+          }
+        }
+      } catch (probeError) {
+        console.error(`${logPrefix} ⚠️  Could not verify output dimensions:`, probeError.message);
+      }
     } catch (error) {
       console.error(`${logPrefix} ❌ FFmpeg execution error:`, error.message);
       throw error;

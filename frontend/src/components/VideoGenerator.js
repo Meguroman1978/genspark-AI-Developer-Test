@@ -16,7 +16,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
     videoService: 'fal-ai',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをfal-aiに変更
     falAiModel: 'fal-ai/flux/dev',  // FAL AI model selection
-    visualMode: 'crossfade'  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
+    visualMode: 'crossfade',  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
+    bgmTrack: '陽だまりのリズム.mp3'  // デフォルトBGM
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
@@ -310,7 +311,7 @@ function VideoGenerator({ apiKeysConfigured }) {
           <div className="form-group">
             <label htmlFor="videoService">
               画像生成サービス
-              <span className="help-text">使用する画像生成AIを選択</span>
+              <span className="help-text">使用する画像生成AIを選択（動画作成は全てFFmpeg）</span>
             </label>
             <select
               id="videoService"
@@ -320,10 +321,10 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="fal-ai">✨ FAL AI (推奨・低コスト)</option>
+              <option value="fal-ai">✨ FAL AI + FFmpeg (推奨・低コスト)</option>
               <option value="ffmpeg">🖼️ DALL-E 3 + FFmpeg</option>
-              <option value="creatomate">🎬 Creatomate (有料)</option>
-              <option value="shotstack">⚡ Shotstack (月20回無料)</option>
+              <option value="creatomate">🎬 Creatomate (有料・外部サービス)</option>
+              <option value="shotstack">⚡ Shotstack (月20回無料・外部サービス)</option>
             </select>
           </div>
           
@@ -383,6 +384,28 @@ function VideoGenerator({ apiKeysConfigured }) {
             </select>
           </div>
           
+          <div className="form-group">
+            <label htmlFor="bgmTrack">
+              🎵 BGM選択
+              <span className="help-text">動画に使用する背景音楽</span>
+            </label>
+            <select
+              id="bgmTrack"
+              name="bgmTrack"
+              value={formData.bgmTrack}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="陽だまりのリズム.mp3">☀️ 陽だまりのリズム（デフォルト）</option>
+              <option value="春風.mp3">🌸 春風</option>
+              <option value="夜桜.mp3">🌙 夜桜</option>
+              <option value="皇居Run.mp3">🏃 皇居Run</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="form-row">
           {formData.visualMode === 'crossfade' && (
             <div className="form-group">
               <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '8px', fontSize: '0.9em'}}>
@@ -390,6 +413,9 @@ function VideoGenerator({ apiKeysConfigured }) {
               </div>
             </div>
           )}
+          <div className="form-group">
+            {/* Empty div for grid layout */}
+          </div>
         </div>
 
         <div className="form-row">
