@@ -5,6 +5,7 @@ function VideoGenerator({ apiKeysConfigured }) {
   const [formData, setFormData] = useState({
     theme: '',
     themeRomaji: '',  // NEW: ローマ字読み（英語ナレーション用）
+    referenceUrl: '',  // NEW: 参照URL（オプション）
     duration: 10,  // デフォルトを10秒に変更
     videoTitle: '',  // YouTubeタイトル（オプション）
     videoDescription: '',  // YouTube説明文（オプション）
@@ -204,6 +205,28 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="referenceUrl">
+              参照URL
+              <span className="help-text">（オプション）参考にする情報のURL</span>
+            </label>
+            <input
+              type="url"
+              id="referenceUrl"
+              name="referenceUrl"
+              value={formData.referenceUrl}
+              onChange={handleChange}
+              placeholder="https://example.com/reference-article"
+              className="form-input"
+              disabled={loading}
+            />
+            <span className="help-text" style={{display: 'block', marginTop: '4px', fontSize: '0.85em'}}>
+              URLを入力すると、そのページの内容を参考に動画を生成します
+            </span>
           </div>
         </div>
 

@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode } = req.body;
+  const { theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -57,6 +57,7 @@ router.post('/generate', async (req, res) => {
             jobId,
             theme,
             themeRomaji: themeRomaji || null,  // ローマ字読み（オプション）
+            referenceUrl: referenceUrl || null,  // 参照URL（オプション）
             duration,
             videoTitle: videoTitle || null,  // カスタムタイトル（オプション）
             videoDescription: videoDescription || null,  // カスタム説明文（オプション）
@@ -70,6 +71,7 @@ router.post('/generate', async (req, res) => {
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,
+              falAiKey: keys.fal_ai_key,
               creatomateKey: keys.creatomate_key,
               creatomateTemplateId: keys.creatomate_template_id,
               stabilityAiKey: keys.stability_ai_key,

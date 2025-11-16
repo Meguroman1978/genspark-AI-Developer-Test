@@ -9,7 +9,7 @@ const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, themeRomaji, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, keys, db } = config;
+    const { jobId, theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -30,7 +30,7 @@ class VideoGeneratorService {
       const effectiveTheme = (language !== 'ja' && themeRomaji) ? themeRomaji : theme;
       console.log(`[Job ${jobId}] Effective theme for script generation: ${effectiveTheme}`);
       
-      const script = await this.generateScript(effectiveTheme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat);
+      const script = await this.generateScript(effectiveTheme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat, referenceUrl);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
       
       // Store the script
@@ -189,8 +189,24 @@ class VideoGeneratorService {
     }
   }
 
-  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts') {
+  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts', referenceUrl = null) {
     const openai = new OpenAI({ apiKey: openaiKey });
+    
+    // If referenceUrl is provided, fetch its content
+    let referenceContent = '';
+    if (referenceUrl) {
+      try {
+        console.log(`Fetching reference URL content: ${referenceUrl}`);
+        const axios = require('axios');
+        const response = await axios.get(referenceUrl, { timeout: 10000 });
+        // Simple text extraction (for better extraction, could use a library like cheerio)
+        referenceContent = response.data.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').substring(0, 3000);
+        console.log(`Reference content fetched: ${referenceContent.length} characters`);
+      } catch (error) {
+        console.error(`Failed to fetch reference URL: ${error.message}`);
+        referenceContent = '';
+      }
+    }
 
     // Calculate precise character/word count based on language and speaking rate
     // Japanese: ~7-8 characters per second (420-480 chars per minute)

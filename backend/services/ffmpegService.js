@@ -371,10 +371,11 @@ class FFmpegService {
       }
     }
 
-    // Build FFmpeg command
+    // Build FFmpeg command with explicit output dimensions
     const ffmpegCommand = `ffmpeg ${inputs.join(' ')} \
       -filter_complex "${filterComplex}" \
       -map "[video]" -map "[audio]" \
+      -s ${width}x${height} \
       -c:v libx264 -preset fast -crf 22 \
       -c:a aac -b:a 192k \
       -t ${totalDuration} \
