@@ -6,15 +6,15 @@ function VideoGenerator({ apiKeysConfigured }) {
     theme: '',
     themeRomaji: '',  // NEW: ローマ字読み（英語ナレーション用）
     referenceUrl: '',  // NEW: 参照URL（オプション）
-    duration: 10,  // デフォルトを10秒に変更
+    duration: 16,  // デフォルトを16秒に変更
     videoTitle: '',  // YouTubeタイトル（オプション）
     videoDescription: '',  // YouTube説明文（オプション）
     privacyStatus: 'private',
     contentType: '',
-    language: 'ja',
+    language: 'en',  // デフォルトを英語に変更
     thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
-    videoService: 'fal-ai',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをfal-aiに変更
+    videoService: 'ffmpeg',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpeg (DALL-E 3 + FFmpeg)に変更
     falAiModel: 'fal-ai/flux/dev',  // FAL AI model selection
     visualMode: 'crossfade'  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
   });
