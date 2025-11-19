@@ -30,8 +30,14 @@ function ApiKeysSettings({ onSaved }) {
       const response = await fetch('/api/keys?userId=default_user');
       const data = await response.json();
       
-      // Only show masked values, don't populate the form
-      // User needs to re-enter to update
+      // Display masked values for existing keys (except redirect_uri which should be visible)
+      // This allows users to see what's configured without re-entering
+      if (data.youtube_redirect_uri) {
+        setFormData(prev => ({
+          ...prev,
+          youtube_redirect_uri: data.youtube_redirect_uri
+        }));
+      }
     } catch (error) {
       console.error('Error loading API keys:', error);
     }

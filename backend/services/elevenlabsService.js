@@ -5,17 +5,106 @@ const path = require('path');
 class ElevenLabsService {
   constructor() {
     this.baseUrl = 'https://api.elevenlabs.io/v1';
-    // Using a default voice ID (Adam - a good general purpose voice)
-    this.defaultVoiceId = '21m00Tcm4TlvDq8ikWAM';
+    // Voice configurations organized by language and gender (including elderly voices)
+    this.voices = {
+      en: {
+        female: {
+          id: 'cgSgspJ2msm6clMCkdW9',
+          name: 'English Female',
+          description: 'Natural English female voice'
+        },
+        male: {
+          id: 'pqHfZKP75CvOlQylNhV4',
+          name: 'English Male',
+          description: 'Natural English male voice'
+        },
+        female_old: {
+          id: '0rEo3eAjssGDUCXHYENf',
+          name: 'English Female (Elderly)',
+          description: 'Natural English elderly female voice'
+        },
+        male_old: {
+          id: 'Tw2LVqLUUWkxqrCfFOpw',
+          name: 'English Male (Elderly)',
+          description: 'Natural English elderly male voice'
+        }
+      },
+      ja: {
+        female: {
+          id: 'KgETZ36CCLD1Cob4xpkv',
+          name: 'Japanese Female',
+          description: 'Natural Japanese female voice'
+        },
+        male: {
+          id: 'cGbEKHsmg38m62yxIWFk',
+          name: 'Japanese Male',
+          description: 'Natural Japanese male voice'
+        },
+        female_old: {
+          id: 'D9MdulIxfrCUUJcGNQon',
+          name: 'Japanese Female (Elderly)',
+          description: 'Natural Japanese elderly female voice'
+        },
+        male_old: {
+          id: 'hKUnzqLzU3P9IVhYHREu',
+          name: 'Japanese Male (Elderly)',
+          description: 'Natural Japanese elderly male voice'
+        }
+      },
+      zh: {
+        female: {
+          id: 'bhJUNIXWQQ94l8eI2VUf',
+          name: 'Chinese Female',
+          description: 'Natural Chinese female voice'
+        },
+        male: {
+          id: 'WuLq5z7nEcrhppO0ZQJw',
+          name: 'Chinese Male',
+          description: 'Natural Chinese male voice'
+        },
+        female_old: {
+          id: 'r3SDVYUIvcC4EweQtSj0',
+          name: 'Chinese Female (Elderly)',
+          description: 'Natural Chinese elderly female voice'
+        },
+        male_old: {
+          id: 'auoHciLZJwKTwYUoRTYz',
+          name: 'Chinese Male (Elderly)',
+          description: 'Natural Chinese elderly male voice'
+        }
+      }
+    };
+    
+    // Speed configurations
+    this.speeds = {
+      slow: { stability: 0.7, similarity_boost: 0.75, speaking_rate: 0.85 },
+      normal: { stability: 0.5, similarity_boost: 0.8, speaking_rate: 1.0 },
+      fast: { stability: 0.4, similarity_boost: 0.85, speaking_rate: 1.15 }
+    };
+    this.defaultSpeed = 'normal';
   }
 
-  async generateAudio(text, apiKey, jobId = null) {
+  async generateAudio(text, apiKey, jobId = null, voiceType = null, speed = null, language = 'ja') {
     const logPrefix = jobId ? `[Job ${jobId}]` : '[ElevenLabs]';
+    
+    // Get language-specific voices
+    const languageVoices = this.voices[language] || this.voices['ja'];
+    
+    // Use provided voice type or default to female
+    const selectedVoiceType = voiceType || 'female';
+    const voice = languageVoices[selectedVoiceType] || languageVoices['female'];
+    
+    // Use provided speed or default
+    const selectedSpeed = speed || this.defaultSpeed;
+    const speedSettings = this.speeds[selectedSpeed] || this.speeds[this.defaultSpeed];
     
     try {
       console.log(`${logPrefix} 🎙️ Generating audio with ElevenLabs...`);
       console.log(`${logPrefix} Text length: ${text.length} characters`);
-      console.log(`${logPrefix} Voice ID: ${this.defaultVoiceId}`);
+      console.log(`${logPrefix} Language: ${language}`);
+      console.log(`${logPrefix} Voice: ${voice.name} (${voice.description})`);
+      console.log(`${logPrefix} Voice ID: ${voice.id}`);
+      console.log(`${logPrefix} Speed: ${selectedSpeed} (rate: ${speedSettings.speaking_rate})`);
 
       // First, verify API key
       try {
@@ -36,15 +125,16 @@ class ElevenLabsService {
       // Generate audio
       console.log(`${logPrefix} Sending TTS request...`);
       const response = await axios.post(
-        `${this.baseUrl}/text-to-speech/${this.defaultVoiceId}`,
+        `${this.baseUrl}/text-to-speech/${voice.id}`,
         {
           text: text,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
+            stability: speedSettings.stability,
+            similarity_boost: speedSettings.similarity_boost,
             style: 0.0,
-            use_speaker_boost: true
+            use_speaker_boost: true,
+            speaking_rate: speedSettings.speaking_rate
           }
         },
         {

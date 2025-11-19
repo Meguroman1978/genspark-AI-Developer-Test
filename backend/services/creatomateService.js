@@ -8,8 +8,15 @@ class CreatomateService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language, thumbnailBackground, videoFormat } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, creatomateKey, creatomateTemplateId, stabilityAiKey, jobId, publicUrl, language, thumbnailBackground, videoFormat, bgmUrl, bgmPath } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Creatomate]';
+    
+    // Note: Creatomate needs a URL for BGM, not a local path
+    // If bgmPath is provided, we need to upload it or use bgmUrl
+    if (bgmPath && !bgmUrl) {
+      console.log(`${logPrefix} ⚠️ Warning: bgmPath provided but Creatomate requires URL. BGM will be skipped.`);
+      console.log(`${logPrefix} To use BGM with Creatomate, provide bgmUrl instead.`);
+    }
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
     try {

@@ -7,7 +7,7 @@ router.get('/', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -43,7 +43,13 @@ router.get('/', async (req, res) => {
         creatomate_template_id: row.creatomate_template_id || '',
         creatomate_public_token: maskKey(row.creatomate_public_token),
         stability_ai_key: maskKey(row.stability_ai_key),
-        youtube_credentials: row.youtube_credentials ? 'Configured' : ''
+        shotstack_key: maskKey(row.shotstack_key),
+        youtube_credentials: row.youtube_credentials ? 'Configured' : '',
+        youtube_client_id: maskKey(row.youtube_client_id),
+        youtube_client_secret: maskKey(row.youtube_client_secret),
+        youtube_access_token: maskKey(row.youtube_access_token),
+        youtube_refresh_token: maskKey(row.youtube_refresh_token),
+        youtube_redirect_uri: row.youtube_redirect_uri || ''
       });
     }
   );
@@ -95,9 +101,14 @@ router.post('/', async (req, res) => {
             stability_ai_key = COALESCE(?, stability_ai_key),
             shotstack_key = COALESCE(?, shotstack_key),
             youtube_credentials = COALESCE(?, youtube_credentials),
+            youtube_client_id = COALESCE(?, youtube_client_id),
+            youtube_client_secret = COALESCE(?, youtube_client_secret),
+            youtube_access_token = COALESCE(?, youtube_access_token),
+            youtube_refresh_token = COALESCE(?, youtube_refresh_token),
+            youtube_redirect_uri = COALESCE(?, youtube_redirect_uri),
             updated_at = ?
           WHERE user_id = ?`,
-          [openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, userId],
+          [openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri, now, userId],
           (err) => {
             if (err) {
               console.error('Error updating API keys:', err);
@@ -109,9 +120,9 @@ router.post('/', async (req, res) => {
       } else {
         // Insert new keys
         db.run(
-          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [userId, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, now, now],
+          `INSERT INTO api_keys (user_id, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [userId, openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri, now, now],
           (err) => {
             if (err) {
               console.error('Error inserting API keys:', err);
@@ -131,7 +142,7 @@ router.get('/actual', async (req, res) => {
   const userId = req.query.userId || 'default_user';
 
   db.get(
-    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, creatomate_public_token, stability_ai_key, shotstack_key, youtube_credentials, youtube_client_id, youtube_client_secret, youtube_access_token, youtube_refresh_token, youtube_redirect_uri FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     (err, row) => {
       if (err) {
@@ -143,6 +154,18 @@ router.get('/actual', async (req, res) => {
         return res.status(404).json({ error: 'No API keys found. Please configure them first.' });
       }
 
+      // Build youtube_credentials from individual fields if they exist (for backward compatibility)
+      let youtube_creds = row.youtube_credentials;
+      if (!youtube_creds && (row.youtube_client_id || row.youtube_client_secret)) {
+        const credentials = {};
+        if (row.youtube_client_id) credentials.client_id = row.youtube_client_id;
+        if (row.youtube_client_secret) credentials.client_secret = row.youtube_client_secret;
+        if (row.youtube_access_token) credentials.access_token = row.youtube_access_token;
+        if (row.youtube_refresh_token) credentials.refresh_token = row.youtube_refresh_token;
+        if (row.youtube_redirect_uri) credentials.redirect_uri = row.youtube_redirect_uri;
+        youtube_creds = JSON.stringify(credentials);
+      }
+
       res.json({
         openai_key: row.openai_key,
         elevenlabs_key: row.elevenlabs_key,
@@ -151,7 +174,8 @@ router.get('/actual', async (req, res) => {
         creatomate_template_id: row.creatomate_template_id,
         creatomate_public_token: row.creatomate_public_token,
         stability_ai_key: row.stability_ai_key,
-        youtube_credentials: row.youtube_credentials
+        shotstack_key: row.shotstack_key,
+        youtube_credentials: youtube_creds
       });
     }
   );
