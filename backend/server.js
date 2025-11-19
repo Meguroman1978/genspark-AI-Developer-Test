@@ -113,6 +113,27 @@ function initializeDatabase() {
           console.error('Error adding fal_ai_key column:', err.message);
         }
       });
+      // Add separate columns for YouTube Client ID and Client Secret (for persistence)
+      db.run(`ALTER TABLE api_keys ADD COLUMN youtube_client_id TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding youtube_client_id column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE api_keys ADD COLUMN youtube_client_secret TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding youtube_client_secret column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE api_keys ADD COLUMN youtube_access_token TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding youtube_access_token column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE api_keys ADD COLUMN youtube_refresh_token TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding youtube_refresh_token column:', err.message);
+        }
+      });
     }
   });
 
@@ -172,6 +193,16 @@ function initializeDatabase() {
       db.run(`ALTER TABLE video_jobs ADD COLUMN pexels_urls TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column')) {
           console.error('Error adding pexels_urls column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN bgm_track TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding bgm_track column:', err.message);
+        }
+      });
+      db.run(`ALTER TABLE video_jobs ADD COLUMN cost_summary TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding cost_summary column:', err.message);
         }
       });
     }

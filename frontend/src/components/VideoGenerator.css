@@ -583,3 +583,35 @@
     padding: 15px;
   }
 }
+
+/* Cost Summary Styles */
+.cost-summary-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cost-summary-title {
+  margin: 0 0 15px 0;
+  color: #ffffff;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.cost-summary-content {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.cost-summary-text {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95em;
+  line-height: 1.6;
+  color: #2d3748;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

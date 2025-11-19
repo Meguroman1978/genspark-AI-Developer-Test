@@ -6,7 +6,8 @@ function VideoGenerator({ apiKeysConfigured }) {
     theme: '',
     themeRomaji: '',  // NEW: ローマ字読み（英語ナレーション用）
     referenceUrl: '',  // NEW: 参照URL（オプション）
-    duration: 16,  // デフォルトを16秒に変更
+    duration: 16,  // デフォルトを16秒に変更（ユーザーリクエスト）
+    imageCount: '',  // 画像枚数（空の場合は自動計算: duration/3）
     videoTitle: '',  // YouTubeタイトル（オプション）
     videoDescription: '',  // YouTube説明文（オプション）
     privacyStatus: 'private',
@@ -14,15 +15,20 @@ function VideoGenerator({ apiKeysConfigured }) {
     language: 'en',  // デフォルトを英語に変更
     thumbnailBackground: 'fuji_pagoda_day',  // デフォルト: 富士山と五重の塔（昼）
     videoFormat: 'shorts',  // 'normal' (16:9) or 'shorts' (9:16) - デフォルトをshortsに変更
-    videoService: 'ffmpeg',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpeg (DALL-E 3 + FFmpeg)に変更
+    videoService: 'ffmpeg',  // 'fal-ai' (FAL AI), 'creatomate', 'ffmpeg', or 'shotstack' - デフォルトをffmpegに変更（ユーザーリクエスト: DALL-E 3 + FFmpeg）
     falAiModel: 'fal-ai/flux/dev',  // FAL AI model selection
-    visualMode: 'crossfade'  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
+    visualMode: 'crossfade',  // 'static' (静止画), or 'crossfade' (クロスフェード+ズーム)
+    bgmTrack: '陽だまりのリズム.mp3',  // デフォルトBGM（陽だまり）
+    voiceType: 'female',  // ナレーション声種: 'female' (女性), 'male' (男性)
+    narrationSpeed: 'normal'  // ナレーション速度: 'slow' (遅い), 'normal' (標準), 'fast' (早口)
   });
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
   const [error, setError] = useState('');
   const [recentJobs, setRecentJobs] = useState([]);
+  const [bgmDebugInfo, setBgmDebugInfo] = useState(null);
+  const [bgmDebugLoading, setBgmDebugLoading] = useState(false);
 
   useEffect(() => {
     loadRecentJobs();
@@ -34,6 +40,9 @@ function VideoGenerator({ apiKeysConfigured }) {
       interval = setInterval(() => {
         checkJobStatus(jobId);
       }, 3000); // Check every 3 seconds
+    } else if (jobId && jobStatus?.status === 'completed' && !bgmDebugInfo) {
+      // Fetch BGM debug info when job completes
+      fetchBgmDebug(jobId);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -47,6 +56,20 @@ function VideoGenerator({ apiKeysConfigured }) {
       setRecentJobs(jobs);
     } catch (error) {
       console.error('Error loading recent jobs:', error);
+    }
+  };
+
+  const fetchBgmDebug = async (jobId) => {
+    setBgmDebugLoading(true);
+    try {
+      const response = await fetch(`/api/video/bgm-debug/${jobId}`);
+      const data = await response.json();
+      setBgmDebugInfo(data);
+    } catch (error) {
+      console.error('Error fetching BGM debug info:', error);
+      setBgmDebugInfo({ error: 'FETCH_FAILED', message: 'Failed to fetch BGM debug info' });
+    } finally {
+      setBgmDebugLoading(false);
     }
   };
 
@@ -71,8 +94,8 @@ function VideoGenerator({ apiKeysConfigured }) {
       return;
     }
 
-    if (formData.duration < 10 || formData.duration > 120) {
-      setError('動画の長さは10秒から120秒の間で指定してください');
+    if (formData.duration < 5 || formData.duration > 120) {
+      setError('動画の長さは5秒から120秒の間で指定してください');
       return;
     }
 
@@ -91,6 +114,7 @@ function VideoGenerator({ apiKeysConfigured }) {
           theme: formData.theme,
           themeRomaji: formData.themeRomaji,  // Add romaji for non-Japanese narration
           duration: parseInt(formData.duration),
+          imageCount: formData.imageCount ? parseInt(formData.imageCount) : null,  // Custom image count (null = auto)
           videoTitle: formData.videoTitle,
           videoDescription: formData.videoDescription,
           privacyStatus: formData.privacyStatus,
@@ -99,7 +123,10 @@ function VideoGenerator({ apiKeysConfigured }) {
           thumbnailBackground: formData.thumbnailBackground,
           videoFormat: formData.videoFormat,
           videoService: formData.videoService,  // Add service selection
-          visualMode: formData.visualMode  // Add visual mode selection
+          visualMode: formData.visualMode,  // Add visual mode selection
+          bgmTrack: formData.bgmTrack,  // Add BGM selection
+          voiceType: formData.voiceType,  // Add voice type selection
+          narrationSpeed: formData.narrationSpeed  // Add narration speed selection
         })
       });
 
@@ -250,6 +277,27 @@ function VideoGenerator({ apiKeysConfigured }) {
           </div>
 
           <div className="form-group">
+            <label htmlFor="imageCount">
+              画像生成枚数
+              <span className="help-text">空欄の場合は自動計算（推奨: {Math.floor(formData.duration / 3)}枚）</span>
+            </label>
+            <input
+              type="number"
+              id="imageCount"
+              name="imageCount"
+              value={formData.imageCount}
+              onChange={handleChange}
+              placeholder={Math.floor(formData.duration / 3)}
+              min="1"
+              max="40"
+              className="form-input"
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="language">
               <span className="required">* </span>動画の言語
               <span className="help-text">スクリプトと音声の言語</span>
@@ -267,32 +315,11 @@ function VideoGenerator({ apiKeysConfigured }) {
               <option value="zh">🇨🇳 中文</option>
             </select>
           </div>
-        </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="thumbnailBackground">
-              タイトル背景画像
-              <span className="help-text">冒頭2秒のタイトルスクリーンの背景</span>
-            </label>
-            <select
-              id="thumbnailBackground"
-              name="thumbnailBackground"
-              value={formData.thumbnailBackground}
-              onChange={handleChange}
-              className="form-input"
-              disabled={loading}
-            >
-              <option value="fuji_pagoda_day">🗻 富士山と五重の塔（昼）</option>
-              <option value="fuji_pagoda_sunset">🌅 富士山と五重の塔（夕日）</option>
-              <option value="none">なし（最初の画像を使用）</option>
-            </select>
-          </div>
-          
           <div className="form-group">
             <label htmlFor="videoFormat">
               動画フォーマット
-              <span className="help-text">YouTubeショート or 通常動画</span>
+              <span className="help-text">縦型 or 横型</span>
             </label>
             <select
               id="videoFormat"
@@ -302,15 +329,18 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="normal">📺 通常動画 (16:9 横長)</option>
-              <option value="shorts">📱 YouTubeショート (9:16 縦長)</option>
+              <option value="normal">横型 (16:9)</option>
+              <option value="shorts">縦型 (9:16)</option>
             </select>
+            <span className="help-text" style={{display: 'block', marginTop: '4px', fontSize: '0.85em'}}>
+              ※ タイトル背景画像は自動で選択されます
+            </span>
           </div>
 
           <div className="form-group">
             <label htmlFor="videoService">
               画像生成サービス
-              <span className="help-text">使用する画像生成AIを選択</span>
+              <span className="help-text">使用する画像生成AIを選択（動画作成は全てFFmpeg）</span>
             </label>
             <select
               id="videoService"
@@ -320,10 +350,10 @@ function VideoGenerator({ apiKeysConfigured }) {
               className="form-input"
               disabled={loading}
             >
-              <option value="fal-ai">✨ FAL AI (推奨・低コスト)</option>
+              <option value="fal-ai">✨ FAL AI + FFmpeg (推奨・低コスト)</option>
               <option value="ffmpeg">🖼️ DALL-E 3 + FFmpeg</option>
-              <option value="creatomate">🎬 Creatomate (有料)</option>
-              <option value="shotstack">⚡ Shotstack (月20回無料)</option>
+              <option value="creatomate">🎬 Creatomate (有料・外部サービス)</option>
+              <option value="shotstack">⚡ Shotstack (月20回無料・外部サービス)</option>
             </select>
           </div>
           
@@ -383,6 +413,69 @@ function VideoGenerator({ apiKeysConfigured }) {
             </select>
           </div>
           
+          <div className="form-group">
+            <label htmlFor="bgmTrack">
+              🎵 BGM選択
+              <span className="help-text">動画に使用する背景音楽</span>
+            </label>
+            <select
+              id="bgmTrack"
+              name="bgmTrack"
+              value={formData.bgmTrack}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="陽だまりのリズム.mp3">☀️ 陽だまり（デフォルト）</option>
+              <option value="春風.mp3">🌸 春風</option>
+              <option value="夜桜.mp3">🌙 夜桜</option>
+              <option value="皇居Run.mp3">🏃 皇居Run</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="voiceType">
+              🎙️ ナレーション音声
+              <span className="help-text">声の種類を選択</span>
+            </label>
+            <select
+              id="voiceType"
+              name="voiceType"
+              value={formData.voiceType}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="female">👩 女性</option>
+              <option value="male">👨 男性</option>
+              <option value="female_old">👵 女性_老人</option>
+              <option value="male_old">👴 男性_老人</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="narrationSpeed">
+              ⚡ ナレーション速度
+              <span className="help-text">話すスピード</span>
+            </label>
+            <select
+              id="narrationSpeed"
+              name="narrationSpeed"
+              value={formData.narrationSpeed}
+              onChange={handleChange}
+              className="form-input"
+              disabled={loading}
+            >
+              <option value="slow">🐢 遅い</option>
+              <option value="normal">🚶 標準</option>
+              <option value="fast">🏃 早口</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="form-row">
           {formData.visualMode === 'crossfade' && (
             <div className="form-group">
               <div className="info-box" style={{marginTop: '8px', padding: '12px', backgroundColor: '#e3f2fd', borderRadius: '8px', fontSize: '0.9em'}}>
@@ -390,6 +483,9 @@ function VideoGenerator({ apiKeysConfigured }) {
               </div>
             </div>
           )}
+          <div className="form-group">
+            {/* Empty div for grid layout */}
+          </div>
         </div>
 
         <div className="form-row">
@@ -602,7 +698,18 @@ function VideoGenerator({ apiKeysConfigured }) {
 
           {/* Debug Artifacts Section */}
           {(jobStatus.status === 'completed' || jobStatus.status === 'failed') && (
-            <div className="artifacts-section">
+            <>
+              {/* Cost Summary */}
+              {jobStatus.cost_summary && (
+                <div className="cost-summary-section">
+                  <h4 className="cost-summary-title">💰 コスト詳細</h4>
+                  <div className="cost-summary-content">
+                    <pre className="cost-summary-text">{jobStatus.cost_summary}</pre>
+                  </div>
+                </div>
+              )}
+
+              <div className="artifacts-section">
               <h4 className="artifacts-title">🔍 デバッグ情報（生成された中間ファイル）</h4>
               <p className="artifacts-description">
                 動画生成過程で作成された各種ファイルを確認できます。動画内容が意図と異なる場合、これらを確認してください。
@@ -726,10 +833,82 @@ function VideoGenerator({ apiKeysConfigured }) {
                 </details>
               )}
 
+              {/* BGM Debug Info */}
+              {jobStatus.status === 'completed' && (
+                <details className="artifact-details">
+                  <summary className="artifact-summary">
+                    <span className="artifact-icon">🎵</span>
+                    <span className="artifact-name">BGM挿入デバッグ情報</span>
+                  </summary>
+                  <div className="artifact-content">
+                    {bgmDebugLoading && (
+                      <p>🔄 BGM情報を取得中...</p>
+                    )}
+                    {!bgmDebugLoading && bgmDebugInfo && (
+                      <div className="bgm-debug">
+                        <p><strong>使用BGMトラック:</strong> {bgmDebugInfo.bgmTrack || 'Unknown'}</p>
+                        {bgmDebugInfo.success ? (
+                          <>
+                            <p className="success-message">✅ BGMが正常に動画に挿入されています！</p>
+                            <p><strong>オーディオストリーム数:</strong> {bgmDebugInfo.audioStreams}</p>
+                            <p><strong>BGM抽出:</strong> 成功</p>
+                            <audio controls className="audio-player">
+                              <source src={bgmDebugInfo.bgmUrl} type="audio/mpeg" />
+                              お使いのブラウザは音声再生に対応していません。
+                            </audio>
+                            <details style={{ marginTop: '10px' }}>
+                              <summary>📊 オーディオストリーム詳細</summary>
+                              <pre style={{ fontSize: '12px', background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
+                                {JSON.stringify(bgmDebugInfo.streamInfo, null, 2)}
+                              </pre>
+                            </details>
+                          </>
+                        ) : (
+                          <>
+                            <p className="error-message">❌ BGMの挿入に問題がある可能性があります</p>
+                            <p><strong>エラーコード:</strong> {bgmDebugInfo.error}</p>
+                            <p><strong>詳細:</strong> {bgmDebugInfo.message}</p>
+                            {bgmDebugInfo.audioStreams !== undefined && (
+                              <p><strong>オーディオストリーム数:</strong> {bgmDebugInfo.audioStreams}</p>
+                            )}
+                            {bgmDebugInfo.streamInfo && (
+                              <details style={{ marginTop: '10px' }}>
+                                <summary>📊 オーディオストリーム詳細</summary>
+                                <pre style={{ fontSize: '12px', background: '#f5f5f5', padding: '10px', borderRadius: '4px' }}>
+                                  {JSON.stringify(bgmDebugInfo.streamInfo, null, 2)}
+                                </pre>
+                              </details>
+                            )}
+                            <div className="info-box" style={{ marginTop: '15px' }}>
+                              <p><strong>考えられる原因:</strong></p>
+                              <ul>
+                                <li>BGMファイルが見つからない（{bgmDebugInfo.error === 'VIDEO_FILE_NOT_FOUND' && 'ビデオファイルが削除された'}）</li>
+                                <li>オーディオストリームが正しく混合されていない（{bgmDebugInfo.error === 'SINGLE_AUDIO_STREAM' && 'ナレーションのみ'}）</li>
+                                <li>FFmpegコマンドの実行に失敗</li>
+                              </ul>
+                              <p><strong>対処方法:</strong></p>
+                              <ul>
+                                <li>動画を再生成してみてください</li>
+                                <li>異なるBGMトラックを選択してみてください</li>
+                                <li>サーバーログを確認してFFmpegエラーを調査してください</li>
+                              </ul>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {!bgmDebugLoading && !bgmDebugInfo && (
+                      <p>BGM情報を読み込み中...</p>
+                    )}
+                  </div>
+                </details>
+              )}
+
               {(!jobStatus.script_text && !jobStatus.audio_url && !jobStatus.image_urls && !jobStatus.pexels_urls && !jobStatus.video_url) && (
                 <p className="no-artifacts">中間ファイルは保存されていません（この機能は最近追加されました）</p>
               )}
             </div>
+            </>
           )}
         </div>
       )}

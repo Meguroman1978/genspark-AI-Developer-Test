@@ -5,11 +5,12 @@ const elevenlabsService = require('./elevenlabsService');
 const creatomateService = require('./creatomateService');
 const youtubeService = require('./youtubeService');
 const pexelsService = require('./pexelsService');
+const falAiService = require('./falAiService');
 const { toRomaji } = require('../utils/romajiConverter');
 
 class VideoGeneratorService {
   async generateVideo(config) {
-    const { jobId, theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, keys, db } = config;
+    const { jobId, theme, themeRomaji, referenceUrl, duration, imageCount, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, bgmTrack, voiceType, narrationSpeed, keys, db } = config;
 
     try {
       // Step 1: Web/Wikipedia Search
@@ -30,7 +31,7 @@ class VideoGeneratorService {
       const effectiveTheme = (language !== 'ja' && themeRomaji) ? themeRomaji : theme;
       console.log(`[Job ${jobId}] Effective theme for script generation: ${effectiveTheme}`);
       
-      const script = await this.generateScript(effectiveTheme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat, referenceUrl);
+      const script = await this.generateScript(effectiveTheme, duration, searchResults, keys.openaiKey, contentType, language, videoFormat, referenceUrl, imageCount);
       console.log(`[Job ${jobId}] Script generated: ${script.narration.substring(0, 100)}...`);
       
       // Store the script
@@ -40,9 +41,23 @@ class VideoGeneratorService {
       // Step 3: Generate Audio with ElevenLabs
       await this.updateProgress(db, jobId, 'Generating voice narration...');
       console.log(`[Job ${jobId}] Generating audio`);
+      console.log(`[Job ${jobId}] Language: ${language}`);
+      console.log(`[Job ${jobId}] Voice type: ${voiceType || 'female (default)'}`);
+      console.log(`[Job ${jobId}] Narration speed: ${narrationSpeed || 'normal (default)'}`);
       
-      const audioUrl = await elevenlabsService.generateAudio(script.narration, keys.elevenlabsKey, jobId);
+      const audioUrl = await elevenlabsService.generateAudio(script.narration, keys.elevenlabsKey, jobId, voiceType, narrationSpeed, language);
       console.log(`[Job ${jobId}] Audio generated: ${audioUrl}`);
+      
+      // Calculate ElevenLabs cost (approximate)
+      const characterCount = script.narration.length;
+      const elevenLabsCost = characterCount * 0.00003;  // Approximate $0.30 per 10,000 characters
+      console.log(`💰 ElevenLabs cost: $${elevenLabsCost.toFixed(4)} (${characterCount}文字)`);
+      
+      const audioCost = {
+        service: 'ElevenLabs',
+        cost: elevenLabsCost,
+        details: `$${elevenLabsCost.toFixed(4)} (${characterCount}文字)`
+      };
       
       // Store the audio URL
       await this.updateArtifact(db, jobId, 'audio_url', audioUrl);
@@ -52,7 +67,7 @@ class VideoGeneratorService {
       await this.updateProgress(db, jobId, 'Preparing visual assets...');
       console.log(`[Job ${jobId}] Fetching visual assets`);
       
-      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration, visualMode, keys.stabilityAiKey, jobId);
+      const visualAssets = await this.prepareVisualAssets(script.scenes, keys.openaiKey, videoFormat, duration, visualMode, keys.stabilityAiKey, jobId, keys.falAiKey);
       console.log(`[Job ${jobId}] Visual assets prepared: ${visualAssets.length} assets`);
       
       // Store visual assets URLs
@@ -70,7 +85,8 @@ class VideoGeneratorService {
       }
 
       // Step 5: Create Final Video with selected service
-      const selectedService = videoService || 'creatomate'; // Default to Creatomate
+      // Note: 'fal-ai' is for image generation, video is always created with FFmpeg
+      const selectedService = videoService || 'ffmpeg'; // Default to FFmpeg (was creatomate)
       await this.updateProgress(db, jobId, `Creating final video with ${selectedService}...`);
       console.log(`[Job ${jobId}] Creating video with ${selectedService}`);
       
@@ -87,8 +103,38 @@ class VideoGeneratorService {
       
       let videoUrl;
       
-      // Set BGM URL (use default BGM stored in temp directory)
-      const bgmUrl = `${publicUrl}/temp/bgm_default.mp3`;
+      // Set BGM path (use selected BGM track or default)
+      const path = require('path');
+      const fs = require('fs');
+      const selectedBgm = bgmTrack || '陽だまりのリズム.mp3';  // デフォルトを陽だまりに変更
+      
+      // Normalize Unicode (NFD/NFC) to match filesystem
+      const normalizedBgm = selectedBgm.normalize('NFC');
+      const bgmDir = path.join(__dirname, '../assets/bgm');
+      
+      // Find the actual file (handles Unicode normalization issues)
+      let actualBgmFile = normalizedBgm;
+      try {
+        const files = fs.readdirSync(bgmDir);
+        const matchedFile = files.find(f => f.normalize('NFC') === normalizedBgm);
+        if (matchedFile) {
+          actualBgmFile = matchedFile;
+          console.log(`[Job ${jobId}] BGM file matched: ${matchedFile}`);
+        }
+      } catch (err) {
+        console.error(`[Job ${jobId}] Error reading BGM directory:`, err);
+      }
+      
+      const bgmPath = path.join(bgmDir, actualBgmFile);
+      console.log(`[Job ${jobId}] Using BGM track: ${selectedBgm}`);
+      console.log(`[Job ${jobId}] BGM path: ${bgmPath}`);
+      console.log(`[Job ${jobId}] BGM file exists: ${fs.existsSync(bgmPath)}`);
+      
+      // Auto-select title background image based on video format
+      const autoThumbnailBackground = videoFormat === 'shorts' 
+        ? 'thumbnail_portrait.png'  // 縦長用 (Portrait/Vertical)
+        : 'thumbnail_landscape.png';  // 横長用 (Landscape/Horizontal)
+      console.log(`[Job ${jobId}] Auto-selected title background: ${autoThumbnailBackground} for ${videoFormat} format`);
       
       const videoConfig = {
         audioUrl,
@@ -98,17 +144,21 @@ class VideoGeneratorService {
         originalTheme: theme,
         publicUrl,
         language,
-        thumbnailBackground,
+        thumbnailBackground: autoThumbnailBackground,  // 自動選択されたタイトル背景画像
         videoFormat,
-        bgmUrl,
+        bgmPath,  // Changed from bgmUrl to bgmPath (local file path)
         narrationText: script.narration,  // Add narration text for subtitles
         visualMode: visualMode || 'static',  // Pass visual mode to FFmpeg service
         jobId
       };
 
       // Select and call appropriate video service
-      if (selectedService === 'ffmpeg') {
-        console.log(`[Job ${jobId}] Using FFmpeg (FREE)`);
+      // Note: 'fal-ai' uses FFmpeg for video creation (FAL AI is only for image generation)
+      if (selectedService === 'ffmpeg' || selectedService === 'fal-ai') {
+        console.log(`[Job ${jobId}] Using FFmpeg (FREE) for video composition`);
+        if (selectedService === 'fal-ai') {
+          console.log(`[Job ${jobId}] Note: FAL AI images + FFmpeg video composition`);
+        }
         const ffmpegService = require('./ffmpegService');
         videoUrl = await ffmpegService.createVideo(videoConfig);
       } else if (selectedService === 'shotstack') {
@@ -169,6 +219,25 @@ class VideoGeneratorService {
         completionMessage = 'Video generated successfully! YouTube credentials not configured - upload skipped.';
       }
 
+      // Store BGM info for debugging
+      await this.updateArtifact(db, jobId, 'bgm_track', selectedBgm);
+      console.log(`[Job ${jobId}] BGM track info stored: ${selectedBgm}`);
+      
+      // Calculate and display total cost
+      const totalCost = (script._cost?.cost || 0) + (audioCost?.cost || 0) + (visualAssets._cost?.cost || 0);
+      const costSummary = [
+        '\n📊 コスト詳細:',
+        script._cost ? `スクリプト生成 (${script._cost.service}): ${script._cost.details}` : null,
+        audioCost ? `音声合成 (${audioCost.service}): ${audioCost.details}` : null,
+        visualAssets._cost ? `画像生成 (${visualAssets._cost.service}): ${visualAssets._cost.details}` : null,
+        `\n💰 合計コスト: $${totalCost.toFixed(4)} (約${(totalCost * 150).toFixed(2)}円)`
+      ].filter(Boolean).join('\n');
+      
+      console.log(`[Job ${jobId}] ${costSummary}`);
+      
+      // Store cost summary for display
+      await this.updateArtifact(db, jobId, 'cost_summary', costSummary);
+      
       // Update job as completed (save both YouTube URL and video URL)
       await this.updateProgress(db, jobId, completionMessage, 'completed', youtubeUrl, videoUrl);
       console.log(`[Job ${jobId}] Video generation completed successfully`);
@@ -189,7 +258,7 @@ class VideoGeneratorService {
     }
   }
 
-  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts', referenceUrl = null) {
+  async generateScript(theme, duration, searchInfo, openaiKey, contentType, language = 'ja', videoFormat = 'shorts', referenceUrl = null, customImageCount = null) {
     const openai = new OpenAI({ apiKey: openaiKey });
     
     // If referenceUrl is provided, fetch its content
@@ -253,13 +322,32 @@ class VideoGeneratorService {
       ? `\n\nVideo Style: ${typeInstructions[contentType]}`
       : '';
 
-    // Calculate number of images needed (1 image per 2.5 seconds)
-    const imageCount = Math.ceil(duration / 2.5);
+    // Calculate number of images needed
+    // Base calculation: duration / 2.5 (each image ~2.5 seconds)
+    const baseImageCount = Math.ceil(duration / 2.5);
+    
+    // Use custom count if provided, otherwise use base calculation
+    let imageCount;
+    if (customImageCount) {
+      imageCount = customImageCount;
+      console.log(`📸 Using user-specified image count: ${imageCount}`);
+    } else {
+      imageCount = baseImageCount;
+      console.log(`📸 Auto-calculated image count: ${imageCount} (${duration}s ÷ 2.5s/image)`);
+    }
+    
+    console.log(`📝 Subtitle distribution: Words will be evenly distributed across ${imageCount} images`);
+    console.log(`   (Max 4 words per line, unlimited lines per image)`);
+    
+    // Build reference content section if available
+    const referenceSection = referenceContent 
+      ? `\n\nReference Material (use this information to inform your script):\n${referenceContent}\n` 
+      : '';
     
     const prompt = `You are a professional video script writer. Create an engaging narration script for a ${duration}-second video about "${theme}".${typeInstruction}
 
 Background Information:
-${searchInfo}
+${searchInfo}${referenceSection}
 
 CRITICAL REQUIREMENTS - SCRIPT LENGTH:
 - This is for a ${duration}-second video
@@ -321,6 +409,22 @@ Return your response in the following JSON format:
 
     const result = JSON.parse(response.choices[0].message.content);
     
+    // Calculate cost based on token usage
+    const usage = response.usage;
+    const inputCost = (usage.prompt_tokens / 1000) * 0.01;  // $0.01 per 1K input tokens
+    const outputCost = (usage.completion_tokens / 1000) * 0.03;  // $0.03 per 1K output tokens
+    const totalCost = inputCost + outputCost;
+    
+    console.log(`💰 OpenAI cost: $${totalCost.toFixed(4)} (入力: ${usage.prompt_tokens}トークン, 出力: ${usage.completion_tokens}トークン)`);
+    
+    // Add cost information to result
+    result._cost = {
+      service: 'OpenAI GPT-4 Turbo',
+      cost: totalCost,
+      details: `$${totalCost.toFixed(4)} (入力: ${usage.prompt_tokens}トークン, 出力: ${usage.completion_tokens}トークン)`,
+      usage: usage
+    };
+    
     // Validate and log script length
     const actualLength = language === 'ja' || language === 'zh' 
       ? result.narration.length 
@@ -333,63 +437,238 @@ Return your response in the following JSON format:
       console.warn(`   This may cause the narration to exceed ${duration} seconds.`);
     }
     
+    // Calculate required image count based on actual narration length
+    // Each scene can display max 9 words (3 lines × 3 words) for English
+    // For Japanese/Chinese, estimate based on character count (~ 15 chars per scene)
+    let requiredImageCount;
+    if (language === 'ja' || language === 'zh') {
+      const maxCharsPerScene = 15; // Conservative estimate for Japanese/Chinese
+      requiredImageCount = Math.ceil(actualLength / maxCharsPerScene);
+    } else {
+      const maxWordsPerScene = 9; // 3 lines × 3 words per line
+      const wordCount = result.narration.split(/\s+/).length;
+      requiredImageCount = Math.ceil(wordCount / maxWordsPerScene);
+    }
+    
+    // Add recommended image count to result
+    result._recommendedImageCount = requiredImageCount;
+    console.log(`📸 Recommended image count: ${requiredImageCount} (to display all narration text)`);
+    
+    // If custom image count was provided, compare with required
+    if (customImageCount && customImageCount < requiredImageCount) {
+      console.warn(`⚠️  User requested ${customImageCount} images, but ${requiredImageCount} needed for full narration`);
+      console.warn(`   Automatically increasing to ${requiredImageCount} images`);
+    }
+    
     return result;
   }
 
-  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10, visualMode = 'ken-burns', stabilityAiKey = null, jobId = null) {
+  async prepareVisualAssets(scenes, openaiKey, videoFormat = 'shorts', duration = 10, visualMode = 'ken-burns', stabilityAiKey = null, jobId = null, falAiKey = null) {
     const assets = [];
     
-    // Determine image size and aspect ratio based on video format
-    // CRITICAL: Must match video dimensions exactly to avoid black bars
-    // Shorts (9:16 vertical): 1024x1792
-    // Normal (16:9 horizontal): 1792x1024
-    const imageSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+    // CRITICAL: Use EXACT pixel dimensions for video output
+    // Shorts (9:16 vertical): 1080x1920 pixels
+    // Normal (16:9 horizontal): 1920x1080 pixels
+    const imageWidth = videoFormat === 'shorts' ? 1080 : 1920;
+    const imageHeight = videoFormat === 'shorts' ? 1920 : 1080;
     const aspectRatio = videoFormat === 'shorts' ? '9:16 vertical portrait' : '16:9 horizontal landscape';
     
-    console.log(`Visual mode: ${visualMode} (Ken Burns効果で動きを追加)`);
-    console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageSize})`);
+    console.log(`Visual mode: ${visualMode}`);
+    console.log(`Generating ${scenes.length} assets in ${aspectRatio} format (${imageWidth}x${imageHeight})`);
 
-    // Generate DALL-E images with Ken Burns effect applied in FFmpeg
-    console.log('🎬 Using DALL-E Images with Ken Burns Animation Effect');
+    // Decide which image generation service to use
+    const useFalAi = falAiKey && falAiKey.trim() !== '';
     
-    // Visual variety themes to ensure each slide looks different
-    const visualThemes = [
-      'vibrant colorful scene with dynamic composition',
-      'serene peaceful atmosphere with soft pastel colors',
-      'dramatic lighting with strong contrasts and shadows',
-      'warm golden hour lighting with rich colors',
-      'cool blue tones with modern aesthetic',
-      'playful whimsical style with bright colors'
-    ];
+    console.log(`🔍 Image generation service selection: falAiKey=${falAiKey ? 'provided' : 'null/empty'}, useFalAi=${useFalAi}`);
     
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      try {
-        // Generate image with DALL-E in correct aspect ratio
-        // Ken Burns effect will be applied later in FFmpeg (if visualMode is ken-burns)
+    if (useFalAi) {
+      console.log('🎨 Using FAL AI for image generation with exact dimensions');
+      
+      // Visual variety themes to ensure each slide looks different
+      const visualThemes = [
+        'vibrant colorful scene with dynamic composition',
+        'serene peaceful atmosphere with soft pastel colors',
+        'dramatic lighting with strong contrasts and shadows',
+        'warm golden hour lighting with rich colors',
+        'cool blue tones with modern aesthetic',
+        'playful whimsical style with bright colors'
+      ];
+      
+      // Use FAL AI default model (flux-pro)
+      const falModelId = 'fal-ai/flux-pro';
+      
+      let falAiFailedCount = 0;
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
         const visualTheme = visualThemes[i % visualThemes.length];
-        console.log(`Scene ${i+1}/${scenes.length}: Generating DALL-E image with theme "${visualTheme}"`);
+        let imageGenerated = false;
         
-        const openai = new OpenAI({ apiKey: openaiKey });
-        const imageResponse = await openai.images.generate({
-          model: 'dall-e-3',
-          prompt: `High-quality 3D anime style illustration with ${visualTheme}. Style: modern 3D animation similar to Pixar or Japanese anime CGI, with appealing character designs and beautiful environments. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others. IMPORTANT: Create image in ${aspectRatio} format that fills the entire frame.`,
-          n: 1,
-          size: imageSize
-        });
+        // Try FAL AI first
+        try {
+          console.log(`Scene ${i+1}/${scenes.length}: Generating FAL AI image with theme "${visualTheme}"`);
+          
+          // Create orientation-specific prompt guidance with STRONG enforcement
+          const orientationGuidance = videoFormat === 'shorts' 
+            ? 'CRITICAL VERTICAL COMPOSITION: This MUST be a naturally composed VERTICAL PORTRAIT image (1080x1920, 9:16 aspect ratio). REQUIREMENTS: Tall vertical framing with subjects positioned upright. Characters standing, vertical architectural elements, vertical depth in landscapes. FORBIDDEN: Wide horizontal compositions, landscape-oriented scenes, subjects arranged horizontally. The entire composition must be designed for vertical viewing from the ground up.'
+            : 'Compose as a HORIZONTAL LANDSCAPE image (wider than tall). All subjects and scenery must be naturally arranged for horizontal viewing.';
+          
+          // Style guidance to avoid shoujo manga aesthetic
+          const styleGuidance = 'STYLE REQUIREMENTS: Modern 3D CGI animation style (Pixar/DreamWorks quality). Avoid: shoujo manga style, sparkles, flower backgrounds, overly decorative elements, excessive pastels, typical manga character designs with huge eyes and tiny mouths. Prefer: realistic proportions, cinematic lighting, natural environments, subtle colors, professional CGI rendering.';
+          
+          const result = await falAiService.generateImage({
+            modelId: falModelId,
+            prompt: `${orientationGuidance}\n\n${styleGuidance}\n\nHigh-quality 3D CGI illustration with ${visualTheme}. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others.`,
+            imageSize: { width: imageWidth, height: imageHeight },
+            numImages: 1,
+            apiKey: falAiKey
+          });
 
-        console.log(`Scene ${i+1}/${scenes.length}: Image generated successfully`);
-        assets.push({
-          type: 'image',
-          url: imageResponse.data[0].url,
-          description: scene.description,
-          timing: scene.timing
-        });
-      } catch (error) {
-        console.error(`Scene ${i+1}/${scenes.length}: Error generating image:`, error.message);
-        // Continue with next scene even if one fails
+          if (result.success && result.images.length > 0) {
+            console.log(`Scene ${i+1}/${scenes.length}: FAL AI image generated successfully (${result.images[0].width}x${result.images[0].height})`);
+            assets.push({
+              type: 'image',
+              url: result.images[0].url,
+              description: scene.description,
+              timing: scene.timing,
+              source: 'FAL AI'
+            });
+            imageGenerated = true;
+          } else {
+            throw new Error('FAL AI returned no images');
+          }
+        } catch (error) {
+          console.error(`❌ Scene ${i+1}/${scenes.length}: FAL AI failed:`, error.message);
+          falAiFailedCount++;
+          
+          // Fallback to DALL-E 3
+          try {
+            console.log(`🔄 Scene ${i+1}/${scenes.length}: Falling back to DALL-E 3...`);
+            
+            const dalleSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+            
+            const orientationGuidance = videoFormat === 'shorts' 
+              ? 'CRITICAL VERTICAL COMPOSITION: This MUST be a naturally composed VERTICAL PORTRAIT image (1024x1792, 9:16 aspect ratio). REQUIREMENTS: Tall vertical framing with subjects positioned upright. Characters standing, vertical architectural elements, vertical depth in landscapes. FORBIDDEN: Wide horizontal compositions, landscape-oriented scenes, subjects arranged horizontally. The entire composition must be designed for vertical viewing from the ground up.'
+              : 'Compose as a HORIZONTAL LANDSCAPE image (wider than tall). All subjects and scenery must be naturally arranged for horizontal viewing.';
+            
+            const styleGuidance = 'STYLE REQUIREMENTS: Modern 3D CGI animation style (Pixar/DreamWorks quality). Avoid: shoujo manga style, sparkles, flower backgrounds, overly decorative elements, excessive pastels, typical manga character designs with huge eyes and tiny mouths. Prefer: realistic proportions, cinematic lighting, natural environments, subtle colors, professional CGI rendering.';
+            
+            const openai = new OpenAI({ apiKey: openaiKey });
+            const imageResponse = await openai.images.generate({
+              model: 'dall-e-3',
+              prompt: `${orientationGuidance}\n\n${styleGuidance}\n\nHigh-quality 3D CGI illustration with ${visualTheme}. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others.`,
+              n: 1,
+              size: dalleSize
+            });
+
+            console.log(`✅ Scene ${i+1}/${scenes.length}: DALL-E 3 fallback succeeded`);
+            assets.push({
+              type: 'image',
+              url: imageResponse.data[0].url,
+              description: scene.description,
+              timing: scene.timing,
+              source: 'DALL-E 3 (fallback)'
+            });
+            imageGenerated = true;
+          } catch (dalleError) {
+            console.error(`❌ Scene ${i+1}/${scenes.length}: DALL-E 3 fallback also failed:`, dalleError.message);
+            // Continue with next scene
+          }
+        }
+        
+        if (!imageGenerated) {
+          console.warn(`⚠️  Scene ${i+1}/${scenes.length}: No image generated (both FAL AI and DALL-E 3 failed)`);
+        }
+      }
+      
+      if (falAiFailedCount > 0) {
+        console.log(`📊 FAL AI Summary: ${falAiFailedCount}/${scenes.length} scenes failed, fell back to DALL-E 3`);
+      }
+    } else {
+      console.log('🎬 Using DALL-E 3 for image generation (fallback)');
+      console.log('⚠️  Note: DALL-E 3 may generate incorrect aspect ratios. Consider using FAL AI for reliable dimensions.');
+      
+      // DALL-E 3 fallback - uses fixed sizes (may not always honor aspect ratio)
+      const dalleSize = videoFormat === 'shorts' ? '1024x1792' : '1792x1024';
+      
+      // Visual variety themes
+      const visualThemes = [
+        'vibrant colorful scene with dynamic composition',
+        'serene peaceful atmosphere with soft pastel colors',
+        'dramatic lighting with strong contrasts and shadows',
+        'warm golden hour lighting with rich colors',
+        'cool blue tones with modern aesthetic',
+        'playful whimsical style with bright colors'
+      ];
+      
+      for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        try {
+          const visualTheme = visualThemes[i % visualThemes.length];
+          console.log(`Scene ${i+1}/${scenes.length}: Generating DALL-E 3 image with theme "${visualTheme}"`);
+          
+          // Create orientation-specific prompt guidance with STRONG enforcement
+          const orientationGuidance = videoFormat === 'shorts' 
+            ? 'CRITICAL VERTICAL COMPOSITION: This MUST be a naturally composed VERTICAL PORTRAIT image (1024x1792, 9:16 aspect ratio). REQUIREMENTS: Tall vertical framing with subjects positioned upright. Characters standing, vertical architectural elements, vertical depth in landscapes. FORBIDDEN: Wide horizontal compositions, landscape-oriented scenes, subjects arranged horizontally. The entire composition must be designed for vertical viewing from the ground up.'
+            : 'Compose as a HORIZONTAL LANDSCAPE image (wider than tall). All subjects and scenery must be naturally arranged for horizontal viewing.';
+          
+          // Style guidance to avoid shoujo manga aesthetic
+          const styleGuidance = 'STYLE REQUIREMENTS: Modern 3D CGI animation style (Pixar/DreamWorks quality). Avoid: shoujo manga style, sparkles, flower backgrounds, overly decorative elements, excessive pastels, typical manga character designs with huge eyes and tiny mouths. Prefer: realistic proportions, cinematic lighting, natural environments, subtle colors, professional CGI rendering.';
+          
+          const openai = new OpenAI({ apiKey: openaiKey });
+          const imageResponse = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: `${orientationGuidance}\n\n${styleGuidance}\n\nHigh-quality 3D CGI illustration with ${visualTheme}. Scene ${i+1} focus: ${scene.description}. Requirements: NO TEXT, NO LETTERS, NO WORDS in the image. Clean, polished 3D look with realistic textures. Each scene must look DISTINCTLY DIFFERENT from others.`,
+            n: 1,
+            size: dalleSize
+          });
+
+          console.log(`Scene ${i+1}/${scenes.length}: DALL-E 3 image generated successfully`);
+          assets.push({
+            type: 'image',
+            url: imageResponse.data[0].url,
+            description: scene.description,
+            timing: scene.timing
+          });
+        } catch (error) {
+          console.error(`❌ Scene ${i+1}/${scenes.length}: Error generating DALL-E 3 image:`, error.message);
+          console.error(`   Full error:`, error);
+          // Continue with next scene even if one fails
+        }
       }
     }
+
+    // Calculate image generation cost (handle mixed FAL AI + DALL-E 3)
+    const falAiImages = assets.filter(a => a.type === 'image' && a.source === 'FAL AI');
+    const dalleImages = assets.filter(a => a.type === 'image' && (a.source === 'DALL-E 3 (fallback)' || !a.source));
+    
+    const falAiCost = falAiImages.length * 0.055;  // $0.055 per image for FAL AI Flux Pro v1.1
+    const dalleCost = dalleImages.length * 0.040;  // $0.040 per image for DALL-E 3
+    const totalImageCost = falAiCost + dalleCost;
+    
+    let imageService = '';
+    if (falAiImages.length > 0 && dalleImages.length > 0) {
+      imageService = `Mixed: FAL AI (${falAiImages.length}枚) + DALL-E 3 (${dalleImages.length}枚)`;
+      console.log(`💰 画像生成コスト: $${totalImageCost.toFixed(4)}`);
+      console.log(`   - FAL AI: $${falAiCost.toFixed(4)} (${falAiImages.length}枚 × $0.055)`);
+      console.log(`   - DALL-E 3: $${dalleCost.toFixed(4)} (${dalleImages.length}枚 × $0.040)`);
+    } else if (falAiImages.length > 0) {
+      imageService = 'FAL AI (Flux Pro v1.1)';
+      console.log(`💰 FAL AI cost: $${totalImageCost.toFixed(4)} (${falAiImages.length}枚 × $0.055)`);
+    } else if (dalleImages.length > 0) {
+      imageService = 'DALL-E 3';
+      console.log(`💰 DALL-E 3 cost: $${totalImageCost.toFixed(4)} (${dalleImages.length}枚 × $0.040)`);
+    } else {
+      imageService = 'None (0 images generated)';
+      console.log(`💰 画像生成 (${imageService}): $0.0000 (0枚)`);
+    }
+    
+    // Add cost metadata to assets
+    assets._cost = {
+      service: imageService,
+      cost: totalImageCost,
+      details: `$${totalImageCost.toFixed(4)} (FAL AI: ${falAiImages.length}枚, DALL-E 3: ${dalleImages.length}枚)`
+    };
 
     return assets;
   }

@@ -22,14 +22,40 @@ function ApiDiagnostics() {
         })
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setResults(data);
-      } else {
-        setError(data.error || '診断の実行に失敗しました');
+      // Check if response is valid before parsing
+      if (!response.ok) {
+        const text = await response.text();
+        try {
+          const data = JSON.parse(text);
+          setError(data.error || '診断の実行に失敗しました');
+        } catch {
+          setError(`診断の実行に失敗しました (HTTP ${response.status}): ${text}`);
+        }
+        return;
       }
+
+      const text = await response.text();
+      
+      // Check if response is empty
+      if (!text || text.trim() === '') {
+        setError('サーバーから空のレスポンスが返されました。しばらく待ってから再試行してください。');
+        return;
+      }
+
+      // Try to parse JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('JSON parse error:', parseErr);
+        console.error('Response text:', text);
+        setError(`JSON解析エラー: レスポンスが正しいJSON形式ではありません。サーバーログを確認してください。`);
+        return;
+      }
+
+      setResults(data);
     } catch (err) {
+      console.error('Diagnostics error:', err);
       setError('エラーが発生しました: ' + err.message);
     } finally {
       setTesting(false);

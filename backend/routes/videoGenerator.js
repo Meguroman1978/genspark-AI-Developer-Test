@@ -6,7 +6,7 @@ const videoGeneratorService = require('../services/videoGeneratorService');
 router.post('/generate', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.body.userId || 'default_user';
-  const { theme, themeRomaji, referenceUrl, duration, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode } = req.body;
+  const { theme, themeRomaji, referenceUrl, duration, imageCount, videoTitle, videoDescription, privacyStatus, contentType, language, thumbnailBackground, videoFormat, videoService, visualMode, bgmTrack, voiceType, narrationSpeed } = req.body;
 
   // Validate input
   if (!theme || !duration) {
@@ -19,7 +19,7 @@ router.post('/generate', async (req, res) => {
 
   // Get API keys
   db.get(
-    'SELECT openai_key, elevenlabs_key, creatomate_key, creatomate_template_id, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
+    'SELECT openai_key, elevenlabs_key, fal_ai_key, creatomate_key, creatomate_template_id, stability_ai_key, shotstack_key, youtube_credentials FROM api_keys WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1',
     [userId],
     async (err, keys) => {
       if (err || !keys) {
@@ -59,6 +59,7 @@ router.post('/generate', async (req, res) => {
             themeRomaji: themeRomaji || null,  // ローマ字読み（オプション）
             referenceUrl: referenceUrl || null,  // 参照URL（オプション）
             duration,
+            imageCount: imageCount || null,  // 画像生成枚数（null = 自動計算）
             videoTitle: videoTitle || null,  // カスタムタイトル（オプション）
             videoDescription: videoDescription || null,  // カスタム説明文（オプション）
             privacyStatus: privacyStatus || 'private',
@@ -68,6 +69,9 @@ router.post('/generate', async (req, res) => {
             videoFormat: videoFormat || 'normal',  // 'normal' (16:9) or 'shorts' (9:16)
             videoService: videoService || 'creatomate',  // 'creatomate', 'ffmpeg', or 'shotstack'
             visualMode: visualMode || 'images',  // 'images' (DALL-E) or 'stability-video' (Stability AI)
+            bgmTrack: bgmTrack || '陽だまりのリズム.mp3',  // BGM選択（デフォルト: 陽だまり）
+            voiceType: voiceType || 'female',  // 'female' (女性) or 'male' (男性)
+            narrationSpeed: narrationSpeed || 'normal',  // 'slow' (遅い), 'normal' (標準), or 'fast' (早口)
             keys: {
               openaiKey: keys.openai_key,
               elevenlabsKey: keys.elevenlabs_key,
@@ -98,7 +102,7 @@ router.get('/status/:jobId', (req, res) => {
   const { jobId } = req.params;
 
   db.get(
-    'SELECT id, theme, duration, status, progress, youtube_url, video_url, script_text, audio_url, image_urls, pexels_urls, error_message, created_at, updated_at FROM video_jobs WHERE id = ?',
+    'SELECT id, theme, duration, status, progress, youtube_url, video_url, script_text, audio_url, image_urls, pexels_urls, bgm_track, error_message, created_at, updated_at FROM video_jobs WHERE id = ?',
     [jobId],
     (err, job) => {
       if (err) {
@@ -151,6 +155,132 @@ router.get('/jobs', (req, res) => {
       res.json(jobs || []);
     }
   );
+});
+
+// BGM debugging endpoint - Extract and analyze BGM from video
+router.get('/bgm-debug/:jobId', async (req, res) => {
+  const db = req.app.locals.db;
+  const { jobId } = req.params;
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const path = require('path');
+  const fs = require('fs');
+  
+  const execPromise = promisify(exec);
+
+  try {
+    // Get job info
+    db.get(
+      'SELECT video_url, bgm_track FROM video_jobs WHERE id = ?',
+      [jobId],
+      async (err, job) => {
+        if (err || !job) {
+          return res.status(404).json({ error: 'Job not found' });
+        }
+
+        if (!job.video_url) {
+          return res.status(404).json({ error: 'Video not yet generated' });
+        }
+
+        try {
+          // Extract video filename from URL
+          const videoFilename = job.video_url.split('/').pop();
+          const videoPath = path.join(__dirname, '../../temp', videoFilename);
+
+          if (!fs.existsSync(videoPath)) {
+            return res.json({
+              success: false,
+              error: 'VIDEO_FILE_NOT_FOUND',
+              message: 'Video file not found on server (may have been cleaned up)',
+              bgmTrack: job.bgm_track || 'Unknown',
+              videoUrl: job.video_url
+            });
+          }
+
+          // Use ffprobe to check audio streams
+          const { stdout: probeOutput } = await execPromise(
+            `ffprobe -v quiet -print_format json -show_streams "${videoPath}"`
+          );
+          
+          const probeData = JSON.parse(probeOutput);
+          const audioStreams = probeData.streams.filter(s => s.codec_type === 'audio');
+          
+          console.log(`[BGM Debug ${jobId}] Audio streams found: ${audioStreams.length}`);
+          
+          if (audioStreams.length === 0) {
+            return res.json({
+              success: false,
+              error: 'NO_AUDIO_STREAMS',
+              message: 'No audio streams found in video',
+              bgmTrack: job.bgm_track || 'Unknown',
+              videoPath
+            });
+          }
+
+          // Check if there are multiple audio streams (narration + BGM)
+          if (audioStreams.length < 2) {
+            return res.json({
+              success: false,
+              error: 'SINGLE_AUDIO_STREAM',
+              message: 'Only one audio stream found - BGM may not be mixed properly',
+              bgmTrack: job.bgm_track || 'Unknown',
+              audioStreams: audioStreams.length,
+              streamInfo: audioStreams.map(s => ({
+                codec: s.codec_name,
+                channels: s.channels,
+                sampleRate: s.sample_rate
+              }))
+            });
+          }
+
+          // Extract BGM to temp file for playback
+          const bgmOutputPath = path.join(__dirname, '../../temp', `bgm_${jobId}.mp3`);
+          
+          // Extract second audio stream (BGM) - Note: FFmpeg uses 0-based indexing for streams
+          await execPromise(
+            `ffmpeg -i "${videoPath}" -map 0:a:1 -c:a copy -y "${bgmOutputPath}"`
+          );
+
+          if (!fs.existsSync(bgmOutputPath)) {
+            return res.json({
+              success: false,
+              error: 'BGM_EXTRACTION_FAILED',
+              message: 'Failed to extract BGM stream from video',
+              bgmTrack: job.bgm_track || 'Unknown',
+              audioStreams: audioStreams.length
+            });
+          }
+
+          // Return success with BGM URL
+          const bgmUrl = `/temp/bgm_${jobId}.mp3`;
+          return res.json({
+            success: true,
+            message: 'BGM successfully extracted from video',
+            bgmTrack: job.bgm_track || 'Unknown',
+            bgmUrl,
+            audioStreams: audioStreams.length,
+            streamInfo: audioStreams.map(s => ({
+              codec: s.codec_name,
+              channels: s.channels,
+              sampleRate: s.sample_rate
+            }))
+          });
+
+        } catch (error) {
+          console.error(`[BGM Debug ${jobId}] Error:`, error);
+          return res.json({
+            success: false,
+            error: 'EXTRACTION_ERROR',
+            message: error.message,
+            bgmTrack: job.bgm_track || 'Unknown'
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('BGM debug error:', error);
+    res.status(500).json({ error: 'Failed to debug BGM' });
+  }
 });
 
 module.exports = router;

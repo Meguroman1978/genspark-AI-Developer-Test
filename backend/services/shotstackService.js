@@ -8,8 +8,15 @@ class ShotstackService {
   }
 
   async createVideo(config) {
-    const { audioUrl, visualAssets, duration, theme, originalTheme, shotstackKey, jobId, publicUrl, language, thumbnailBackground, videoFormat, bgmUrl } = config;
+    const { audioUrl, visualAssets, duration, theme, originalTheme, shotstackKey, jobId, publicUrl, language, thumbnailBackground, videoFormat, bgmUrl, bgmPath } = config;
     const logPrefix = jobId ? `[Job ${jobId}]` : '[Shotstack]';
+    
+    // Note: Shotstack needs a URL for BGM, not a local path
+    // If bgmPath is provided, we need to upload it or use bgmUrl
+    if (bgmPath && !bgmUrl) {
+      console.log(`${logPrefix} ⚠️ Warning: bgmPath provided but Shotstack requires URL. BGM will be skipped.`);
+      console.log(`${logPrefix} To use BGM with Shotstack, provide bgmUrl instead.`);
+    }
     const { getBackgroundConfig } = require('../config/backgroundConfig');
 
     try {

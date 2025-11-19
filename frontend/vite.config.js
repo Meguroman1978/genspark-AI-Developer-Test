@@ -28,6 +28,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true
+      },
+      '/temp': {
+        target: 'http://localhost:5000',
+        changeOrigin: true
       }
     }
   }

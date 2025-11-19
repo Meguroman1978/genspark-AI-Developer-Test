@@ -150,11 +150,12 @@ class FalAiService {
    * @param {Object} options - Generation options
    * @param {string} options.modelId - Model ID to use
    * @param {string} options.prompt - Text prompt for image generation
-   * @param {string} options.imageSize - Image size (e.g., "landscape_16_9", "portrait_9_16", "square")
+   * @param {Object|string} options.imageSize - Image size object {width: number, height: number} or legacy string format
    * @param {number} options.numImages - Number of images to generate (default: 1)
    */
-  async generateImage({ modelId, prompt, imageSize = 'landscape_16_9', numImages = 1 }) {
-    if (!this.apiKey) {
+  async generateImage({ modelId, prompt, imageSize = { width: 1920, height: 1080 }, numImages = 1, apiKey = null }) {
+    const effectiveApiKey = apiKey || this.apiKey;
+    if (!effectiveApiKey) {
       throw new Error('FAL AI API key is not configured');
     }
 
@@ -163,22 +164,49 @@ class FalAiService {
       throw new Error(`Invalid model ID: ${modelId}`);
     }
 
+    // Convert imageSize to proper format for FAL AI API
+    let imageSizeParam;
+    if (typeof imageSize === 'object' && imageSize.width && imageSize.height) {
+      // New format: exact pixel dimensions as per FAL AI documentation
+      imageSizeParam = {
+        width: imageSize.width,
+        height: imageSize.height
+      };
+      console.log(`FAL AI: Using exact dimensions: ${imageSize.width}x${imageSize.height}`);
+    } else if (typeof imageSize === 'string') {
+      // Legacy string format - convert to dimensions
+      const dimensionMap = {
+        'landscape_16_9': { width: 1920, height: 1080 },
+        'portrait_9_16': { width: 1080, height: 1920 },
+        'square': { width: 1080, height: 1080 },
+        'square_hd': { width: 1024, height: 1024 },
+        'landscape_4_3': { width: 1365, height: 1024 },
+        'portrait_3_4': { width: 1024, height: 1365 }
+      };
+      imageSizeParam = dimensionMap[imageSize] || { width: 1920, height: 1080 };
+      console.log(`FAL AI: Converted '${imageSize}' to ${imageSizeParam.width}x${imageSizeParam.height}`);
+    } else {
+      // Fallback
+      imageSizeParam = { width: 1920, height: 1080 };
+      console.log(`FAL AI: Using default dimensions: 1920x1080`);
+    }
+
     try {
       console.log(`FAL AI: Generating image with ${model.name}`);
       console.log(`  Prompt: ${prompt.substring(0, 100)}...`);
-      console.log(`  Size: ${imageSize}`);
+      console.log(`  Dimensions: ${imageSizeParam.width}x${imageSizeParam.height}`);
 
       const response = await axios.post(
         `${this.baseUrl}/${modelId}`,
         {
           prompt,
-          image_size: imageSize,
+          image_size: imageSizeParam,
           num_images: numImages,
           enable_safety_checker: true
         },
         {
           headers: {
-            'Authorization': `Key ${this.apiKey}`,
+            'Authorization': `Key ${effectiveApiKey}`,
             'Content-Type': 'application/json'
           },
           timeout: 120000 // 2 minutes timeout
@@ -240,4 +268,5 @@ class FalAiService {
   }
 }
 
-module.exports = FalAiService;
+// Export an instance of the class, not the class itself
+module.exports = new FalAiService();
